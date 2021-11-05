@@ -153,20 +153,20 @@ class ImageParser():
         try:
             # Допустим описание к изображению находится снизу
             try:
-                self.get_fig_n_below(self,fig_block,image_path,figures_path,paper_name)
+                self.get_fig_n_below(fig_block,image_path,figures_path,paper_name)
 
             # допустим описание к изображению находится справа или слева   
             except AttributeError:
-                self.get_fig_n_sides(self,fig_block,image_path,figures_path,paper_name)
+                self.get_fig_n_sides(fig_block,image_path,figures_path,paper_name)
         # изображения без описания
         except AttributeError:
-            self.save_image_as_it_is(self,fig_block,image_path,figures_path,paper_name)
+            self.save_image_as_it_is(fig_block,image_path,figures_path,paper_name)
 
     def save_figures_from_the_page(self,layout,image_path,figures_path,paper_name):
 
         for block in layout.to_dict()['blocks']:
             if block['type']=="Figure":
-                self.save_figure_with_number(self,block,image_path,figures_path,paper_name)
+                self.save_figure_with_number(block,image_path,figures_path,paper_name)
 
     def extract_figures_from_pdf_files(self,path_in,path_out,image_format="PNG"):
 
