@@ -198,17 +198,19 @@ class ImageParser():
 
 
 
-def createParser ():
-    parser = argparse.ArgumentParser()
-    parser.add_argument ('--path_in', '--path_out')
+# def createParser ():
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument('--path_in', '--path_out',action='append')
+#     parser.add_argument('--path_out',default='out',action='append')
  
-    return parser
+#     return parser
  
  
-if __name__ == '__main__':
-    parser = createParser()
-    namespace = parser.parse_args(sys.argv[1:])
+# if __name__ == '__main__':
+#     parser = createParser()
+#     args = vars(parser.parse_args())
 
-    img_parser = ImageParser()
+#     img_parser = ImageParser()
+    
 
-    img_parser.extract_figures_from_pdf_files(namespace.path_in,namespace.path_out)
+#     img_parser.extract_figures_from_pdf_files(args['path_in'], args['path_out'])
