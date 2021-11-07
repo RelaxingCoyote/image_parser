@@ -32,7 +32,7 @@ class ImageParser():
         fh_to_ph = (y_2-y_1)/im.shape[0]
 
         # изображения на всю страницу
-        if (fh_to_ph > 0.84) and (fw_to_iw > 0.59):
+        if (fh_to_ph > 0.785) and (fw_to_iw > 0.60):
             im_desc = cv2.rotate(im, cv2.cv2.ROTATE_90_CLOCKWISE)
             # переворачиваем изображение
             im = im[int(y_1):int(y_2),int(x_1):int(x_2)]
@@ -166,14 +166,7 @@ class ImageParser():
 
         for block in layout.to_dict()['blocks']:
             if block['type']=="Figure":
-                try:
-                    self.save_figure_with_number(block,image_path,figures_path,paper_name)
-                except:
-                    print("self",self)
-                    print("block",block)
-                    print("image_path",image_path)
-                    print("figures_path",figures_path)
-                    print("paper_name",paper_name)
+                self.save_figure_with_number(block,image_path,figures_path,paper_name)
 
     def extract_figures_from_pdf_files(self,path_in,path_out,image_format="PNG"):
 
