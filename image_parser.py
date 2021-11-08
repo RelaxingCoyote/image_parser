@@ -196,10 +196,12 @@ class ImageParser():
         else:
             # Доля от высоты таблицы, на которую мы будем спускаться в поисках номера таблицы
             y_percent = 0.25
-            if fh_to_ph <0.2:
-                y_percent = 0.45
+            if fh_to_ph < 0.2:
+                y_percent = 0.49
+            if fh_to_ph < 0.15:
+                y_percent = 0.60
             elif fh_to_ph>=0.6:
-                y_percent = 0.08
+                y_percent = 0.15
 
             # Если таблица больше, чем в два столбца текста
             if fw_to_iw >= 0.485:
@@ -226,11 +228,11 @@ class ImageParser():
         table_num = result.group(0)
 
 
-        table_num = table_num.replace(" ","_").replace(".","").lower()
+        table_name = table_num.replace(" ","_").replace(".","").lower()
         if not os.path.exists(f"{figures_path}/tables"):
             os.makedirs(f"{figures_path}/tables")
 
-        cv2.imwrite(f"{figures_path}/tables/{table_num}.png", im)
+        cv2.imwrite(f"{figures_path}/tables/{table_name}.png", im)
 
     # Сохраняет предоставленную таблицу
     # В случае наличия номера в виде Table n
@@ -284,7 +286,7 @@ class ImageParser():
                 os.remove(image_path)
             list_figures = os.listdir(figures_path)
             if len(list_figures) == 0:
-                os.remove(figures_path)
+                os.rmdir(figures_path)
 
 
 # позже будет исправлен
