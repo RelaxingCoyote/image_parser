@@ -8,6 +8,7 @@
 </br>`!pip install "layoutparser[layoutmodels]" # Install DL layout model toolkit`
 </br>`!pip install "layoutparser[ocr]" # Install OCR toolkit`
 </br>`!git clone https://github.com/Layout-Parser/layout-parser.git`
+</br>Устаавливаем Tesseract OCR
 </br>`!sudo apt install tesseract-ocr -y`
 </br>`!sudo apt install libtesseract-dev -y`
-</br>`!unzip /content/drive/MyDrive/TaleStorm/cognitive_search/papers/pdfs_to_parse.zip -d /content/`
+</br>`!sudo apt update && sudo apt install -y poppler-utils`
