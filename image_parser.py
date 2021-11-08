@@ -195,9 +195,9 @@ class ImageParser():
         # Таблица не на всю страницу
         else:
             # Доля от высоты таблицы, на которую мы будем спускаться в поисках номера таблицы
-            y_percent = 0.10
+            y_percent = 0.25
             if fh_to_ph <0.2:
-                y_percent = 0.40
+                y_percent = 0.45
             elif fh_to_ph>=0.6:
                 y_percent = 0.08
 
