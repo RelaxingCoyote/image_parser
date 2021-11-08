@@ -226,7 +226,7 @@ class ImageParser():
         table_num = result.group(0)
 
 
-        fig_name = table_num.replace(" ","_").replace(".","").lower()
+        table_num = table_num.replace(" ","_").replace(".","").lower()
         if not os.path.exists(f"{figures_path}/tables"):
             os.makedirs(f"{figures_path}/tables")
 
@@ -283,6 +283,8 @@ class ImageParser():
                 # Удаляем изображение самой страницы
                 os.remove(image_path)
             list_figures = os.listdir(figures_path)
+            if len(list_figures) == 0:
+                os.remove(figures_path)
 
 
 # позже будет исправлен
