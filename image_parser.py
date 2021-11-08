@@ -8,7 +8,6 @@ import numpy as np
 import cv2
 import layoutparser as lp
 from pdf2image import convert_from_path
-# import PIL
 
 
 class ImageParser():
@@ -19,7 +18,8 @@ class ImageParser():
                                                         'lp://PubLayNet/mask_rcnn_X_101_32x8d_FPN_3x/config',
                                                         extra_config=["MODEL.ROI_HEADS.SCORE_THRESH_TEST", 0.80],
                                                         label_map={0: "Text", 1: "Title", 2: "List", 3:"Table", 4:"Figure"})                                                     
-        self.pattern_fig = "Fig. \d*|Figure \d*|Scheme \d*"
+        self.pattern_fig = re.compile("Fig. \d*|Figure \d*|Scheme \d*",re.IGNORECASE)
+        self.pattern_table = re.compile("Table \d*",re.IGNORECASE)
         self.ocr_agent = lp.TesseractAgent(languages='eng')
 
     # Вытаскиваем описание описание строго снизу
@@ -78,8 +78,10 @@ class ImageParser():
 
 
         fig_name = fig_num.replace(" ","_").replace(".","").lower()
+        if not os.path.exists(f"{figures_path}/figures"):
+            os.makedirs(f"{figures_path}/figures")
 
-        cv2.imwrite(f"{figures_path}/{fig_name}.png", im)
+        cv2.imwrite(f"{figures_path}/figures/{fig_name}.png", im)
 
     # Вытаскиваем описание описание справа или слева от изображения
     def get_fig_n_sides(self,fig_block,image_path,figures_path,paper_name):
@@ -111,11 +113,13 @@ class ImageParser():
 
         fig_name = fig_num.replace(" ","_").replace(".","").lower()
 
-
-        cv2.imwrite(f"{figures_path}/{fig_name}.png", im)
+        if not os.path.exists(f"{figures_path}/figures"):
+            os.makedirs(f"{figures_path}/figures")
+        cv2.imwrite(f"{figures_path}/figures/{fig_name}.png", im)
 
     # Сохраняет изображение как undefined_n
-    def save_image_as_it_is(self,fig_block,image_path,figures_path,paper_name):
+    def save_image_as_it_is(self,fig_block,image_path,
+                            figures_path,paper_name,object_type="figures"):
         # Получим координаты изображения
         x_1,y_1 = np.floor(fig_block['x_1']),np.floor(fig_block['y_1'])
         x_2,y_2 = np.ceil(fig_block['x_2']),np.ceil(fig_block['y_2'])
@@ -123,11 +127,11 @@ class ImageParser():
         im = cv2.imread(image_path)
         im = im[int(y_1):int(y_2),int(x_1):int(x_2)]
 
-        if not os.path.exists(f"{figures_path}/untitled_images"):
-            os.makedirs(f"{figures_path}/untitled_images")
+        if not os.path.exists(f"{figures_path}/{object_type}/untitled_{object_type}"):
+            os.makedirs(f"{figures_path}/{object_type}/untitled_{object_type}")
         
         # Получаем список изображенийЫ
-        list_images = os.listdir(f"{figures_path}/untitled_images")
+        list_images = os.listdir(f"{figures_path}/{object_type}/untitled_{object_type}")
         # Сортируем списко чтобы получить последний элемент
         list_images.sort()
         
@@ -148,8 +152,8 @@ class ImageParser():
             # Имя n-го изображения
             image_name = image_name_pattern + str(image_number)
 
-        cv2.imwrite(f"{figures_path}/untitled_images/{image_name}.png", im)
-
+        cv2.imwrite(f"{figures_path}/{object_type}/untitled_{object_type}/{image_name}.png", im)
+    
     # Сохраняет предоставленное изображение
     # В случае наличия номера в виде Fig. n, Figure n или Scheme n сохраняет в виде
     # fig_n, figure_n или scheme_n
@@ -167,11 +171,86 @@ class ImageParser():
         except AttributeError:
             self.save_image_as_it_is(fig_block,image_path,figures_path,paper_name)
 
-    # Сохраняет изображения (схемы) со страницы документа
+    # Вытаскиваем описание описание строго снизу
+    def get_table_n(self,fig_block,image_path,figures_path,paper_name):
+        # Получим координаты таблицы
+        x_1,y_1 = np.floor(fig_block['x_1']),np.floor(fig_block['y_1'])
+        x_2,y_2 = np.ceil(fig_block['x_2']),np.ceil(fig_block['y_2'])
+
+        im = cv2.imread(image_path)
+        # Получаем отношение ширины таблицы к ширине страницы,
+        # а также отношение высототы таблицы к высоте страницы
+        page_width = im.shape[1]
+        figure_width = x_2-x_1
+        fw_to_iw = figure_width/page_width
+        fh_to_ph = (y_2-y_1)/im.shape[0]
+
+        # Таблица на всю страницу
+        if (fh_to_ph > 0.785) and (fw_to_iw > 0.60):
+            im_desc = cv2.rotate(im, cv2.cv2.ROTATE_90_CLOCKWISE)
+            # Переворачиваем таблицу
+            im = im[int(y_1):int(y_2),int(x_1):int(x_2)]
+            im = cv2.rotate(im, cv2.cv2.ROTATE_90_CLOCKWISE)
+
+        # Таблица не на всю страницу
+        else:
+            # Доля от высоты таблицы, на которую мы будем спускаться в поисках номера таблицы
+            y_percent = 0.10
+            if fh_to_ph <0.2:
+                y_percent = 0.40
+            elif fh_to_ph>=0.6:
+                y_percent = 0.08
+
+            # Если таблица больше, чем в два столбца текста
+            if fw_to_iw >= 0.485:
+                delta_x = int(x_1*0.95)
+                delta_y = int((y_2-y_1)*y_percent)
+
+            # Если таблица помещается в один столбец текста
+            else:
+                # Если таблица находится в правом столбце
+                if page_width - x_2> x_1:
+                    delta_x = int(x_1*0.48)
+                # Если таблица в столбце слева
+                else:
+                    delta_x = int(page_width*(0.49 - fw_to_iw )/2)
+                delta_y = int((y_2-y_1)*y_percent)
+            
+            
+            im_desc = im[int(y_1)-delta_y:int(y_1),int(x_1)-delta_x:int(x_2)]
+
+            im = im[int(y_1):int(y_2),int(x_1):int(x_2)]
+
+        table_text = self.ocr_agent.detect(im_desc)
+        result = re.search(self.pattern_table,table_text)
+        table_num = result.group(0)
+
+
+        fig_name = table_num.replace(" ","_").replace(".","").lower()
+        if not os.path.exists(f"{figures_path}/tables"):
+            os.makedirs(f"{figures_path}/tables")
+
+        cv2.imwrite(f"{figures_path}/tables/{table_num}.png", im)
+
+    # Сохраняет предоставленную таблицу
+    # В случае наличия номера в виде Table n
+    # table_n
+    def save_table_with_number(self,fig_block,image_path,figures_path,paper_name):
+        # Предположим, что у таблицы  есть описание
+        try:
+            # Допустим описание к таблице находится сверху
+            self.get_table_n(fig_block,image_path,figures_path,paper_name)
+        # Таблица без описания
+        except AttributeError:
+            self.save_image_as_it_is(fig_block,image_path,figures_path,paper_name,"tables")
+
+    # Сохраняет изображения (таблицы) со страницы документа
     def save_figures_from_the_page(self,layout,image_path,figures_path,paper_name):
         for block in layout.to_dict()['blocks']:
             if block['type'] == "Figure":
                 self.save_figure_with_number(block,image_path,figures_path,paper_name)
+            if block['type'] == "Table":
+                self.save_table_with_number(block,image_path,figures_path,paper_name)
 
     # Из набора pdf-файлов генерирует папки с изображениями
     # содержащимися в документе
@@ -203,6 +282,7 @@ class ImageParser():
                 self.save_figures_from_the_page(layout,image_path,figures_path,paper_name)
                 # Удаляем изображение самой страницы
                 os.remove(image_path)
+            list_figures = os.listdir(figures_path)
 
 
 # позже будет исправлен
