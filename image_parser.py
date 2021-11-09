@@ -24,7 +24,7 @@ class ImageParser():
         self.pattern_table = re.compile("Table \d*[^.,]",re.IGNORECASE)
         self.pattern_fig_desc = re.compile("Fig. \d*[\s\S]+?(?=\n\n)\
                                             |Figure \d*[\s\S]+?(?=\n\n)|Scheme \d*[\s\S]+?(?=\n\n)",re.IGNORECASE)
-        self.pattern_table_desc = re.compile("Table \d*[\s\S]+?(?=\n\n)",re.IGNORECASE)
+        self.pattern_table_desc = re.compile("Table \d*\S.[\s\S]+?(?=\n\n)",re.IGNORECASE)
 
         self.ocr_agent = lp.TesseractAgent(languages='eng')
 
