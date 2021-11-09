@@ -1,6 +1,7 @@
 import os
 import sys
 import argparse
+import json
 import matplotlib.pyplot as plt
 import re
 from tqdm import tqdm
@@ -17,7 +18,8 @@ class ImageParser():
         self.model = lp.Detectron2LayoutModel(
                                                 'lp://PubLayNet/mask_rcnn_X_101_32x8d_FPN_3x/config',
                                                 extra_config=["MODEL.ROI_HEADS.SCORE_THRESH_TEST", 0.80],
-                                                label_map={0: "Text", 1: "Title", 2: "List", 3:"Table", 4:"Figure"})                                                     
+                                                label_map={0: "Text", 1: "Title", 2: "List", 3:"Table", 4:"Figure"}
+                                                )                                                     
         self.pattern_fig = re.compile("Fig. \d*|Figure \d*|Scheme \d*",re.IGNORECASE)
         self.pattern_table = re.compile("Table \d*[^.,]",re.IGNORECASE)
         self.pattern_fig_desc = re.compile("Fig. \d*[\s\S]+?(?=\n\n)\
@@ -27,8 +29,31 @@ class ImageParser():
         self.ocr_agent = lp.TesseractAgent(languages='eng')
 
     # Метод, извлекающий описание к изображению или таблице
-    def get_desc(self,figure_text):
-        pass
+    def get_desc(self,fig_num,figure_text,pattern_desc,figures_path):
+        result = re.search(pattern_desc,figure_text)
+        fig_desc = result.group(0)
+
+        if "table" in fig_num:
+            sub_branch = "tables"
+        else:
+            sub_branch = "figures"
+            
+
+        if not os.path.exists(f"{figures_path}/temp.json"):
+            desc_dict = {}
+            desc_dict[sub_branch] = {fig_num:fig_desc}
+            with open(f"{figures_path}/temp.json","w") as file:
+                json.dump(desc_dict,file)
+        else:
+            file = open(f"{figures_path}/temp.json")
+            desc_dict = json.load(file)
+            if sub_branch not in desc_dict.keys():
+                desc_dict[sub_branch] = {fig_num:fig_desc}
+            else:
+                desc_dict[sub_branch][fig_num] = fig_desc
+
+            with open(f"{figures_path}/temp.json","w") as file:
+                json.dump(desc_dict,file)
     
     # Вытаскиваем описание описание строго снизу
     def get_fig_n_below(self,fig_block,image_path,figures_path,paper_name):
@@ -244,6 +269,8 @@ class ImageParser():
 
         cv2.imwrite(f"{figures_path}/tables/{table_name}.png", im)
 
+        return table_num, table_text
+
     # Сохраняет предоставленную таблицу
     # В случае наличия номера в виде Table n
     # table_n
@@ -251,7 +278,12 @@ class ImageParser():
         # Предположим, что у таблицы  есть описание
         try:
             # Допустим описание к таблице находится сверху
-            self.get_table_n(fig_block,image_path,figures_path,paper_name)
+            # Можно добавить в вайл temp.json название статьи
+            table_num, table_text = self.get_table_n(fig_block,image_path,figures_path,paper_name)
+            try:
+                self.get_desc(table_num,table_text,self.pattern_table_desc,figures_path)
+            except AttributeError:
+                pass
         # Таблица без описания
         except AttributeError:
             self.save_image_as_it_is(fig_block,image_path,figures_path,paper_name,"tables")
