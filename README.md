@@ -11,8 +11,4 @@
 </br>Устаавливаем Tesseract OCR
 </br>`!sudo apt install tesseract-ocr -y`
 </br>`!sudo apt install libtesseract-dev -y`
-<<<<<<< HEAD
 </br>`!sudo apt update && sudo apt install -y poppler-utils`
-=======
-</br>`!sudo apt update && sudo apt install -y poppler-utils`
->>>>>>> afbb194144a8d4af38b5e65327ef2c5777bb97f5

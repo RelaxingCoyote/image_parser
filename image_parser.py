@@ -15,13 +15,21 @@ class ImageParser():
 
     def __init__(self):
         self.model = lp.Detectron2LayoutModel(
-                                                        'lp://PubLayNet/mask_rcnn_X_101_32x8d_FPN_3x/config',
-                                                        extra_config=["MODEL.ROI_HEADS.SCORE_THRESH_TEST", 0.80],
-                                                        label_map={0: "Text", 1: "Title", 2: "List", 3:"Table", 4:"Figure"})                                                     
+                                                'lp://PubLayNet/mask_rcnn_X_101_32x8d_FPN_3x/config',
+                                                extra_config=["MODEL.ROI_HEADS.SCORE_THRESH_TEST", 0.80],
+                                                label_map={0: "Text", 1: "Title", 2: "List", 3:"Table", 4:"Figure"})                                                     
         self.pattern_fig = re.compile("Fig. \d*|Figure \d*|Scheme \d*",re.IGNORECASE)
-        self.pattern_table = re.compile("Table \d*",re.IGNORECASE)
+        self.pattern_table = re.compile("Table \d*[^.,]",re.IGNORECASE)
+        self.pattern_fig_desc = re.compile("Fig. \d*[\s\S]+?(?=\n\n)\
+                                            |Figure \d*[\s\S]+?(?=\n\n)|Scheme \d*[\s\S]+?(?=\n\n)",re.IGNORECASE)
+        self.pattern_table_desc = re.compile("Table \d*[\s\S]+?(?=\n\n)",re.IGNORECASE)
+
         self.ocr_agent = lp.TesseractAgent(languages='eng')
 
+    # Метод, извлекающий описание к изображению или таблице
+    def get_desc(self,figure_text):
+        pass
+    
     # Вытаскиваем описание описание строго снизу
     def get_fig_n_below(self,fig_block,image_path,figures_path,paper_name):
         # Получим координаты изображения
@@ -196,10 +204,12 @@ class ImageParser():
         else:
             # Доля от высоты таблицы, на которую мы будем спускаться в поисках номера таблицы
             y_percent = 0.25
-            if fh_to_ph < 0.2:
-                y_percent = 0.49
-            if fh_to_ph < 0.15:
+            if fh_to_ph < 0.2 and fh_to_ph < 0.15:
+                y_percent = 0.75
+            elif fh_to_ph < 0.15 and fh_to_ph > 0.10:
                 y_percent = 0.60
+            elif fh_to_ph < 0.10:
+                y_percent = 0.90
             elif fh_to_ph>=0.6:
                 y_percent = 0.15
 
