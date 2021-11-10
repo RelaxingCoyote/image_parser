@@ -1,10 +1,8 @@
 import os
 import sys
 import argparse
-import matplotlib.pyplot as plt
 import re
 from tqdm import tqdm
-import numpy as np
 import cv2
 import layoutparser as lp
 from pdf2image import convert_from_path
