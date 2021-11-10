@@ -298,6 +298,28 @@ class ImageParser():
             if len(list_figures) == 0:
                 os.rmdir(figures_path)
 
+    def extract_figures_from_a_single_pdf_file(self,path_pdf,path_out,image_format="PNG"):
+        # получаем название статьи
+        result = re.search("[^/][\w\s]*.pdf",path_pdf)
+        paper_name = result.group(0)
+        paper_name = paper_name[:-4]
+        figures_path = f"{path_out}/{paper_name}"
+        if os.path.exists(figures_path) == False:
+                os.makedirs(figures_path)
+        # Конвертация pdf-файла в изображение
+        pages = convert_from_path(path_pdf,500)
+        for n,page in enumerate(pages,1):
+            # Сохраняем страницу документа в качестве изображения
+            image_path = f"{figures_path}/{n}.{image_format.lower()}"
+            page.save(image_path,image_format)
+            # Детектируем объекты на странице
+            image = cv2.imread(image_path)
+            layout = self.model.detect(image)
+            # Сохраняем изображения со страницы
+            self.save_figures_from_the_page(layout,image_path,figures_path,paper_name)
+            # Удаляем изображение самой страницы
+            os.remove(image_path)
+
 
 # позже будет исправлен
 # def createParser ():
