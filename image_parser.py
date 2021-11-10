@@ -31,7 +31,7 @@ class ImageParser():
         pass
     
     # Вытаскиваем описание описание строго снизу
-    def get_fig_n_below(self,fig_block,image_path,figures_path,paper_name):
+    def get_fig_n_below(self,fig_block,image_path,figures_path):
         # Получим координаты изображения
         x_1,y_1 = np.floor(fig_block['x_1']),np.floor(fig_block['y_1'])
         x_2,y_2 = np.ceil(fig_block['x_2']),np.ceil(fig_block['y_2'])
@@ -92,7 +92,7 @@ class ImageParser():
         cv2.imwrite(f"{figures_path}/figures/{fig_name}.png", im)
 
     # Вытаскиваем описание описание справа или слева от изображения
-    def get_fig_n_sides(self,fig_block,image_path,figures_path,paper_name):
+    def get_fig_n_sides(self,fig_block,image_path,figures_path):
         # Получим координаты изображения
         x_1,y_1 = np.floor(fig_block['x_1']),np.floor(fig_block['y_1'])
         x_2,y_2 = np.ceil(fig_block['x_2']),np.ceil(fig_block['y_2'])
@@ -127,7 +127,7 @@ class ImageParser():
 
     # Сохраняет изображение как undefined_n
     def save_image_as_it_is(self,fig_block,image_path,
-                            figures_path,paper_name,object_type="figures"):
+                            figures_path,object_type="figures"):
         # Получим координаты изображения
         x_1,y_1 = np.floor(fig_block['x_1']),np.floor(fig_block['y_1'])
         x_2,y_2 = np.ceil(fig_block['x_2']),np.ceil(fig_block['y_2'])
@@ -165,19 +165,19 @@ class ImageParser():
     # Сохраняет предоставленное изображение
     # В случае наличия номера в виде Fig. n, Figure n или Scheme n сохраняет в виде
     # fig_n, figure_n или scheme_n
-    def save_figure_with_number(self,fig_block,image_path,figures_path,paper_name):
+    def save_figure_with_number(self,fig_block,image_path,figures_path):
         # Предположим, что у изображения есть описание
         try:
             # Допустим описание к изображению находится снизу
             try:
-                self.get_fig_n_below(fig_block,image_path,figures_path,paper_name)
+                self.get_fig_n_below(fig_block,image_path,figures_path)
 
             # Допустим описание к изображению находится справа или слева   
             except AttributeError:
-                self.get_fig_n_sides(fig_block,image_path,figures_path,paper_name)
+                self.get_fig_n_sides(fig_block,image_path,figures_path)
         # Изображения без описания
         except AttributeError:
-            self.save_image_as_it_is(fig_block,image_path,figures_path,paper_name)
+            self.save_image_as_it_is(fig_block,image_path,figures_path)
 
     # # Вытаскиваем описание описание строго снизу
     # def get_table_n(self,fig_block,image_path,figures_path,paper_name):
@@ -257,10 +257,10 @@ class ImageParser():
     #         self.save_image_as_it_is(fig_block,image_path,figures_path,paper_name,"tables")
 
     # Сохраняет изображения (таблицы) со страницы документа
-    def save_figures_from_the_page(self,layout,image_path,figures_path,paper_name):
+    def save_figures_from_the_page(self,layout,image_path,figures_path):
         for block in layout.to_dict()['blocks']:
             if block['type'] == "Figure":
-                self.save_figure_with_number(block,image_path,figures_path,paper_name)
+                self.save_figure_with_number(block,image_path,figures_path)
             # if block['type'] == "Table":
             #     self.save_table_with_number(block,image_path,figures_path,paper_name)
 
@@ -291,7 +291,7 @@ class ImageParser():
                 image = cv2.imread(image_path)
                 layout = self.model.detect(image)
                 # Сохраняем изображения со страницы
-                self.save_figures_from_the_page(layout,image_path,figures_path,paper_name)
+                self.save_figures_from_the_page(layout,image_path,figures_path)
                 # Удаляем изображение самой страницы
                 os.remove(image_path)
             list_figures = os.listdir(figures_path)
@@ -299,24 +299,17 @@ class ImageParser():
                 os.rmdir(figures_path)
 
     def extract_figures_from_a_single_pdf_file(self,path_pdf,path_out,image_format="PNG"):
-        # получаем название статьи
-        result = re.search("[^/][\w\s]*.pdf",path_pdf)
-        paper_name = result.group(0)
-        paper_name = paper_name[:-4]
-        figures_path = f"{path_out}/{paper_name}"
-        if os.path.exists(figures_path) == False:
-                os.makedirs(figures_path)
         # Конвертация pdf-файла в изображение
         pages = convert_from_path(path_pdf,500)
         for n,page in enumerate(pages,1):
             # Сохраняем страницу документа в качестве изображения
-            image_path = f"{figures_path}/{n}.{image_format.lower()}"
+            image_path = f"{path_out}/{n}.{image_format.lower()}"
             page.save(image_path,image_format)
             # Детектируем объекты на странице
             image = cv2.imread(image_path)
             layout = self.model.detect(image)
             # Сохраняем изображения со страницы
-            self.save_figures_from_the_page(layout,image_path,figures_path,paper_name)
+            self.save_figures_from_the_page(layout,image_path,path_out)
             # Удаляем изображение самой страницы
             os.remove(image_path)
 
