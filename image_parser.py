@@ -30,6 +30,13 @@ class ImageParser():
 
         self.ocr_agent = lp.TesseractAgent(languages='eng')
 
+    def logger(self,what_happened,where_happened,path_out):
+        if not os.path.exists(f"{path_out}/log.txt"):
+            f = open(f"{path_out}/logs/log.txt","w")
+        else:
+            f = open(f"{path_out}/logs/log.txt","a")
+        f.write(f"{what_happened} : {where_happened}\n")
+
     # Метод, извлекающий описание к изображению или таблице
     def get_desc(self,figure_text):
         pass
@@ -283,10 +290,14 @@ class ImageParser():
             image = cv2.imread(image_path)
             try:
                 layout = self.model.detect(image)
-            except:
-                print(f"exception at {image_path}")
-                pass
-            self.save_figures_from_the_page(layout,image_path,path_out)
+            except Exception as e:
+                self.logger(e,image_path,path_out)
+                cv2.imwrite(f"{path_out}/logs/{page}",image)
+            try:
+                self.save_figures_from_the_page(layout,image_path,path_out)
+            except Exception as e:
+                self.logger(e,image_path,path_out)
+                cv2.imwrite(f"{path_out}/logs/{page}",image)
             # os.remove(image_path)
         # os.rmdir(temp_path)
 
