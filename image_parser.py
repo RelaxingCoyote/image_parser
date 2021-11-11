@@ -293,11 +293,13 @@ class ImageParser():
             except Exception as e:
                 self.logger(e,image_path,path_out)
                 cv2.imwrite(f"{path_out}/logs/{page}",image)
+                pass
             try:
                 self.save_figures_from_the_page(layout,image_path,path_out)
             except Exception as e:
                 self.logger(e,image_path,path_out)
                 cv2.imwrite(f"{path_out}/logs/{page}",image)
+                pass
             # os.remove(image_path)
         # os.rmdir(temp_path)
 
