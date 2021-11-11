@@ -8,6 +8,10 @@ import cv2
 import layoutparser as lp
 from pdf2image import convert_from_path
 
+from warnings import filterwarnings
+
+filterwarnings('ignore')
+
 
 class ImageParser():
 
@@ -50,7 +54,6 @@ class ImageParser():
             # Переворачиваем изображение
             figure = im[int(y_1):int(y_2),int(x_1):int(x_2)]
             figure = cv2.rotate(figure, cv2.cv2.ROTATE_90_CLOCKWISE)
-
         # Изображение не на всю страницу
         else:
             # Доля от высоты изображения, на которую мы будем спускаться в поисках номера изображения
@@ -75,7 +78,6 @@ class ImageParser():
                     delta_x = int(page_width*(0.49 - fw_to_iw )/2)
                 delta_y = int((y_2-y_1)*y_percent)
             
-            
             im_desc = im[int(y_2):int(y_2)+delta_y,int(x_1)-delta_x:int(x_2)]
 
             figure = im[int(y_1):int(y_2),int(x_1):int(x_2)]
@@ -83,7 +85,6 @@ class ImageParser():
         figure_text = self.ocr_agent.detect(im_desc)
         result = re.search(self.pattern_fig,figure_text)
         fig_num = result.group(0)
-
 
         fig_name = fig_num.replace(" ","_").replace(".","").lower()
         if not os.path.exists(f"{figures_path}/figures"):
@@ -280,17 +281,21 @@ class ImageParser():
         for page in pages_list:
             image_path = os.path.join(temp_path,page)
             image = cv2.imread(image_path)
-            layout = self.model.detect(image)
+            try:
+                layout = self.model.detect(image)
+            except:
+                print(f"exception at {image_path}")
+                pass
             self.save_figures_from_the_page(layout,image_path,path_out)
-            os.remove(image_path)
-        os.rmdir(temp_path)
-
-        # for root, dirs, files in os.walk(temp_path, topdown=False):
-        #     for name in files:
-        #         os.remove(os.path.join(root, name))
-        #     for name in dirs:
-        #         os.rmdir(os.path.join(root, name))
+            # os.remove(image_path)
         # os.rmdir(temp_path)
+
+        for root, dirs, files in os.walk(temp_path, topdown=False):
+            for name in files:
+                os.remove(os.path.join(root, name))
+            # for name in dirs:
+            #     os.rmdir(os.path.join(root, name))
+        os.rmdir(temp_path)
 
     # Из набора pdf-файлов генерирует папки с изображениями
     # содержащимися в документе

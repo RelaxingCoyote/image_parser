@@ -3,3 +3,5 @@ tqdm
 numpy
 pdf2image==1.16.0
 timm
+opencv-python
+layoutparser
