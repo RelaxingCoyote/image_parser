@@ -48,8 +48,8 @@ class ImageParser():
         if (fh_to_ph > 0.785) and (fw_to_iw > 0.60):
             im_desc = cv2.rotate(im, cv2.cv2.ROTATE_90_CLOCKWISE)
             # Переворачиваем изображение
-            im = im[int(y_1):int(y_2),int(x_1):int(x_2)]
-            im = cv2.rotate(im, cv2.cv2.ROTATE_90_CLOCKWISE)
+            figure = im[int(y_1):int(y_2),int(x_1):int(x_2)]
+            figure = cv2.rotate(figure, cv2.cv2.ROTATE_90_CLOCKWISE)
 
         # Изображение не на всю страницу
         else:
@@ -60,7 +60,7 @@ class ImageParser():
             elif fh_to_ph >= 0.6:
                 y_percent = 0.08
 
-            # Если изображение больше, чем в два столбца текста
+            # Если изображение в два столбца текста
             if fw_to_iw >= 0.485:
                 delta_x = int(x_1*0.95)
                 delta_y = int((y_2-y_1)*y_percent)
@@ -78,7 +78,7 @@ class ImageParser():
             
             im_desc = im[int(y_2):int(y_2)+delta_y,int(x_1)-delta_x:int(x_2)]
 
-            im = im[int(y_1):int(y_2),int(x_1):int(x_2)]
+            figure = im[int(y_1):int(y_2),int(x_1):int(x_2)]
 
         figure_text = self.ocr_agent.detect(im_desc)
         result = re.search(self.pattern_fig,figure_text)
@@ -89,7 +89,7 @@ class ImageParser():
         if not os.path.exists(f"{figures_path}/figures"):
             os.makedirs(f"{figures_path}/figures")
 
-        cv2.imwrite(f"{figures_path}/figures/{fig_name}.png", im)
+        cv2.imwrite(f"{figures_path}/figures/{fig_name}.png", figure)
 
     # Вытаскиваем описание описание справа или слева от изображения
     def get_fig_n_sides(self,fig_block,image_path,figures_path):
@@ -114,7 +114,7 @@ class ImageParser():
             im_desc = im[int(y_1)-delta_y:int(y_2)+delta_y,int(x_1)-delta_x:int(x_2)]
 
         # Распознаём текст описания
-        figure_text = self.ocr_agent.detect(im)
+        figure_text = self.ocr_agent.detect(im_desc)
         result = re.search(self.pattern_fig,figure_text)
         fig_num = result.group(0)
 
@@ -123,7 +123,9 @@ class ImageParser():
 
         if not os.path.exists(f"{figures_path}/figures"):
             os.makedirs(f"{figures_path}/figures")
-        cv2.imwrite(f"{figures_path}/figures/{fig_name}.png", im)
+
+        figure = im[int(y_1):int(y_2),int(x_1):int(x_2)]
+        cv2.imwrite(f"{figures_path}/figures/{fig_name}.png", figure)
 
     # Сохраняет изображение как undefined_n
     def save_image_as_it_is(self,fig_block,image_path,
@@ -263,6 +265,33 @@ class ImageParser():
                 self.save_figure_with_number(block,image_path,figures_path)
             # if block['type'] == "Table":
             #     self.save_table_with_number(block,image_path,figures_path,paper_name)
+            
+
+    def extract_figures_from_a_single_pdf_file(self,path_pdf,path_out,image_format="PNG"):
+        temp_path = f"{path_out}/temp"
+        if os.path.exists(temp_path) == False:
+                os.makedirs(temp_path)
+
+        # Конвертация pdf-файла в изображение
+        convert_from_path(path_pdf,500,output_folder=temp_path,
+                                    fmt=image_format.lower()
+                                    )
+        pages_list = os.listdir(temp_path)
+        pages_list.sort()
+        for page in pages_list:
+            image_path = os.path.join(temp_path,page)
+            image = cv2.imread(image_path)
+            layout = self.model.detect(image)
+            self.save_figures_from_the_page(layout,image_path,path_out)
+            os.remove(image_path)
+        os.rmdir(temp_path)
+
+        # for root, dirs, files in os.walk(temp_path, topdown=False):
+        #     for name in files:
+        #         os.remove(os.path.join(root, name))
+        #     for name in dirs:
+        #         os.rmdir(os.path.join(root, name))
+        # os.rmdir(temp_path)
 
     # Из набора pdf-файлов генерирует папки с изображениями
     # содержащимися в документе
@@ -280,54 +309,5 @@ class ImageParser():
 
             if os.path.exists(figures_path) == False:
                 os.makedirs(figures_path)
-
-        # Конвертация pdf-файла в изображение
-            pages = convert_from_path(file_path,500)
-            for n,page in enumerate(pages,1):
-                # Сохраняем страницу документа в качестве изображения
-                image_path = f"{figures_path}/{n}.{image_format.lower()}"
-                page.save(image_path,image_format)
-                # Детектируем объекты на странице
-                image = cv2.imread(image_path)
-                layout = self.model.detect(image)
-                # Сохраняем изображения со страницы
-                self.save_figures_from_the_page(layout,image_path,figures_path)
-                # Удаляем изображение самой страницы
-                os.remove(image_path)
-            list_figures = os.listdir(figures_path)
-            if len(list_figures) == 0:
-                os.rmdir(figures_path)
-
-    def extract_figures_from_a_single_pdf_file(self,path_pdf,path_out,image_format="PNG"):
-        # Конвертация pdf-файла в изображение
-        pages = convert_from_path(path_pdf,500)
-        for n,page in enumerate(pages,1):
-            # Сохраняем страницу документа в качестве изображения
-            image_path = f"{path_out}/{n}.{image_format.lower()}"
-            page.save(image_path,image_format)
-            # Детектируем объекты на странице
-            image = cv2.imread(image_path)
-            layout = self.model.detect(image)
-            # Сохраняем изображения со страницы
-            self.save_figures_from_the_page(layout,image_path,path_out)
-            # Удаляем изображение самой страницы
-            os.remove(image_path)
-
-
-# позже будет исправлен
-# def createParser ():
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument('--path_in', '--path_out',action='append')
-#     parser.add_argument('--path_out',default='out',action='append')
- 
-#     return parser
- 
- 
-# if __name__ == '__main__':
-#     parser = createParser()
-#     args = vars(parser.parse_args())
-
-#     img_parser = ImageParser()
-    
-
-#     img_parser.extract_figures_from_pdf_files(args['path_in'], args['path_out'])
+            self.extract_figures_from_a_single_pdf_file(file_path,figures_path,image_format)
+        
