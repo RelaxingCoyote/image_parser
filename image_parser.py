@@ -135,7 +135,7 @@ class ImageParser():
         x_2,y_2 = np.ceil(fig_block['x_2']),np.ceil(fig_block['y_2'])
 
         im = cv2.imread(image_path)
-        im = im[int(y_1):int(y_2),int(x_1):int(x_2)]
+        figure = im[int(y_1):int(y_2),int(x_1):int(x_2)]
 
         if not os.path.exists(f"{figures_path}/{object_type}/untitled_{object_type}"):
             os.makedirs(f"{figures_path}/{object_type}/untitled_{object_type}")
@@ -162,7 +162,7 @@ class ImageParser():
             # Имя n-го изображения
             image_name = image_name_pattern + str(image_number)
 
-        cv2.imwrite(f"{figures_path}/{object_type}/untitled_{object_type}/{image_name}.png", im)
+        cv2.imwrite(f"{figures_path}/{object_type}/untitled_{object_type}/{image_name}.png", figure)
     
     # Сохраняет предоставленное изображение
     # В случае наличия номера в виде Fig. n, Figure n или Scheme n сохраняет в виде
@@ -265,7 +265,6 @@ class ImageParser():
                 self.save_figure_with_number(block,image_path,figures_path)
             # if block['type'] == "Table":
             #     self.save_table_with_number(block,image_path,figures_path,paper_name)
-            
 
     def extract_figures_from_a_single_pdf_file(self,path_pdf,path_out,image_format="PNG"):
         temp_path = f"{path_out}/temp"
