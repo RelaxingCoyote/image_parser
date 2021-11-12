@@ -55,8 +55,12 @@ class ImageParser():
                 json.dump(fig_dict, write_file) 
 
     def read_delete_temp(self,file_directory):
-        with open(os.path.join(file_directory,"figures","temp.json"), "r") as read_file:
+        temp_path = os.path.join(file_directory,"figures","temp.json")
+        with open(temp_path, "r") as read_file:
             fig_dict = json.load(read_file)
+            # fig_dict = sorted(fig_dict)
+        # удаляем файл
+        os.remove(temp_path)
         return fig_dict
 
     # Метод, извлекающий описание к изображению или таблице
@@ -86,6 +90,10 @@ class ImageParser():
                             with open(os.path.join(figures_path,"temp.json"), "r") as write_file:
                                 fig_dict = json.load(write_file)
                             if fig_num in fig_dict.keys():
+                                # убираем номер изображения из строки описания
+                                fig_desc = fig_desc.replace(fig_num,"")
+                                fig_desc = fig_desc.strip("\n\f")
+                                fig_desc = fig_desc[2:]
                                 fig_dict[fig_num] = fig_desc
                                 # print(fig_desc)
                                 # self.write_to_json(self,figures_path,fig_num,fig_desc)
