@@ -1,7 +1,9 @@
+from abc import abstractmethod
 import os
 import sys
 import argparse
 import re
+import json
 from tqdm import tqdm
 import numpy as np
 import cv2
@@ -24,22 +26,75 @@ class ImageParser():
                                                 )                                                     
         self.pattern_fig = re.compile("Fig. \d*|Figure \d*|Scheme \d*",re.IGNORECASE)
         self.pattern_table = re.compile("Table \d*[^.,]",re.IGNORECASE)
-        self.pattern_fig_desc = re.compile("Fig. \d*[\s\S]+?(?=\n\n)\
-                                            |Figure \d*[\s\S]+?(?=\n\n)|Scheme \d*[\s\S]+?(?=\n\n)",re.IGNORECASE)
+        self.pattern_fig_desc = re.compile("Fig. \d*[\.\:][\s\S]+|\
+                                            Figure \d*[\.\:][\s\S]+|Scheme \d*[\.\:][\s\S]+",re.IGNORECASE)
         self.pattern_table_desc = re.compile("Table \d*[\s\S]+?(?=\n\n)",re.IGNORECASE)
 
         self.ocr_agent = lp.TesseractAgent(languages='eng')
 
     def logger(self,what_happened,where_happened,path_out):
-        if not os.path.exists(f"{path_out}/log.txt"):
-            f = open(f"{path_out}/logs/log.txt","w")
+        logger_path = f"{path_out}/logs/log.txt"
+        logger_folder = f"{path_out}/logs"
+        if not os.path.exists(logger_folder):
+            os.makedirs(logger_folder)
+            f = open(logger_path ,"w")
         else:
-            f = open(f"{path_out}/logs/log.txt","a")
+            f = open(logger_path,"a")
         f.write(f"{what_happened} : {where_happened}\n")
 
+    def write_to_json(self,file_directory,item_name,item_content=""):
+        if not os.path.exists(os.path.join(file_directory,"temp.json")):
+            fig_dict = {item_name:item_content}
+            with open(os.path.join(file_directory,"temp.json"),'w') as write_file:
+                json.dump(fig_dict, write_file)
+        else:
+            with open(os.path.join(file_directory,"temp.json"), "r") as write_file:
+                fig_dict = json.load(write_file)
+                fig_dict[item_name] = item_content
+            with open(os.path.join(file_directory,"temp.json"), "w") as write_file:
+                json.dump(fig_dict, write_file) 
+
+    def read_delete_temp(self,file_directory):
+        with open(os.path.join(file_directory,"figures","temp.json"), "r") as read_file:
+            fig_dict = json.load(read_file)
+        return fig_dict
+
     # Метод, извлекающий описание к изображению или таблице
-    def get_desc(self,figure_text):
-        pass
+    def get_fig_desc(self,text_block,image_path):
+        x_1,y_1 = np.floor(text_block['x_1']),np.floor(text_block['y_1'])
+        x_2,y_2 = np.ceil(text_block['x_2']),np.ceil(text_block['y_2'])
+
+        im = cv2.imread(image_path)
+        text_image = im[int(y_1):int(y_2),int(x_1):int(x_2)]
+
+        text = self.ocr_agent.detect(text_image)
+        result = re.search(self.pattern_fig_desc,text)
+        fig_desc = result.group(0)
+        return fig_desc
+
+    def save_description_from_the_page(self,layout,image_path,out_path):
+        figures_path = f"{out_path}/figures"
+        if os.path.exists(figures_path):
+            for block in layout.to_dict()['blocks']:
+                if block['type'] == "Text" or block['type'] == "Title":
+                    try:
+                        fig_desc = self.get_fig_desc(block,image_path)
+                        result = re.search(self.pattern_fig,fig_desc)
+                        fig_num = result.group(0)
+
+                        if os.path.exists(os.path.join(figures_path,"temp.json")):
+                            with open(os.path.join(figures_path,"temp.json"), "r") as write_file:
+                                fig_dict = json.load(write_file)
+                            if fig_num in fig_dict.keys():
+                                fig_dict[fig_num] = fig_desc
+                                # print(fig_desc)
+                                # self.write_to_json(self,figures_path,fig_num,fig_desc)
+                                with open(os.path.join(figures_path,"temp.json"), "w") as write_file:
+                                    json.dump(fig_dict, write_file) 
+
+                    except AttributeError:
+                        pass
+
     
     # Вытаскиваем описание описание строго снизу
     def get_fig_n_below(self,fig_block,image_path,figures_path):
@@ -98,6 +153,7 @@ class ImageParser():
             os.makedirs(f"{figures_path}/figures")
 
         cv2.imwrite(f"{figures_path}/figures/{fig_name}.png", figure)
+        self.write_to_json(f"{figures_path}/figures",fig_num)             
 
     # Вытаскиваем описание описание справа или слева от изображения
     def get_fig_n_sides(self,fig_block,image_path,figures_path):
@@ -134,6 +190,8 @@ class ImageParser():
 
         figure = im[int(y_1):int(y_2),int(x_1):int(x_2)]
         cv2.imwrite(f"{figures_path}/figures/{fig_name}.png", figure)
+
+        self.write_to_json(f"{figures_path}/figures",fig_num) 
 
     # Сохраняет изображение как undefined_n
     def save_image_as_it_is(self,fig_block,image_path,
@@ -288,6 +346,7 @@ class ImageParser():
         for page in pages_list:
             image_path = os.path.join(temp_path,page)
             image = cv2.imread(image_path)
+            layout = self.model.detect(image)            
             try:
                 layout = self.model.detect(image)
             except Exception as e:
@@ -300,7 +359,14 @@ class ImageParser():
                 self.logger(e,image_path,path_out)
                 cv2.imwrite(f"{path_out}/logs/{page}",image)
                 pass
-            # os.remove(image_path)
+            try:
+                self.save_description_from_the_page(layout,image_path,path_out)
+            except Exception as e:
+                self.logger(e,image_path,path_out)
+                cv2.imwrite(f"{path_out}/logs/{page}",image)
+                pass
+
+        #     os.remove(image_path)
         # os.rmdir(temp_path)
 
         for root, dirs, files in os.walk(temp_path, topdown=False):
