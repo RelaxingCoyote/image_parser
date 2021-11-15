@@ -56,12 +56,13 @@ class ImageParser():
 
     def read_delete_temp(self,file_directory):
         temp_path = os.path.join(file_directory,"figures","temp.json")
-        with open(temp_path, "r") as read_file:
-            fig_dict = json.load(read_file)
+        if os.path.exists(temp_path):
+            with open(temp_path, "r") as read_file:
+                fig_dict = json.load(read_file)
             # fig_dict = sorted(fig_dict)
         # удаляем файл
-        os.remove(temp_path)
-        return fig_dict
+            os.remove(temp_path)
+            return fig_dict
 
     # Метод, извлекающий описание к изображению или таблице
     def get_fig_desc(self,text_block,image_path):
