@@ -257,6 +257,24 @@ class ImageParser():
         except AttributeError:
             self.save_image_as_it_is(fig_block,image_path,figures_path)
 
+    def get_the_closest_block_beneath(self,layout,coordinate_list):
+        y_1, y_2, x_1, x_2 = coordinate_list
+
+        closest_block_beneath = None
+        closest_block_beneath_distance = np.inf()
+        for block in layout.to_dict()['blocks']:
+            if block['type'] == "Text" or block['type'] == "Title":
+                y_1_cbb, y_2_cbb, x_1_cbb, x_2_cbb = self.get_coordinates(block)
+                if y_1_cbb < y_2:
+                    dot_pair_0 = [x_1,x_1_cbb,y_2,y_1_cbb]
+                    dot_pair_1 = [x_2,x_2_cbb,y_2,y_1_cbb]
+                    closest_block_beneath_distance_new = calculate_double_distance(dot_pair_0,dot_pair_1)
+                    if closest_block_beneath_distance_new < closest_block_beneath_distance:
+                        closest_block_beneath_distance = closest_block_beneath_distance_new
+                        closest_block_beneath = block
+
+        return closest_block_beneath
+    
     # Вытаскиваем описание описание строго снизу
     def get_table_n(self,fig_block,image_path,figures_path):
         # Получим координаты таблицы
