@@ -439,7 +439,7 @@ class ImageParser():
 
         # Изображения без описания
         except AttributeError:
-            self.save_image_as_it_is(fig_block,image_path,formula_path)
+            self.save_image_as_it_is(fig_block,image_path,formula_path,object_type="")
 
     # Сохраняет формулы со страницы документа
     def save_formulas_from_the_page(self,layout,image_path,formula_path):
