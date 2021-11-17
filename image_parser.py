@@ -476,30 +476,31 @@ class ImageParser():
             image_path = os.path.join(temp_path,page)
             image = cv2.imread(image_path)
             layout = self.model.detect(image)            
-            # try:
-            #     layout = self.model.detect(image)
-            # except Exception as e:
-            #     self.logger(e,image_path,path_out)
-            #     cv2.imwrite(f"{path_out}/logs/{page}",image)
-            #     pass
-            # try:
-            #     self.save_figures_from_the_page(layout,image_path,path_out)
-            # except Exception as e:
-            #     self.logger(e,image_path,path_out)
-            #     cv2.imwrite(f"{path_out}/logs/{page}",image)
-            #     pass
-            # try:
-            #     self.save_description_from_the_page(layout,image_path,path_out)
-            # except Exception as e:
-            #     self.logger(e,image_path,path_out)
-            #     cv2.imwrite(f"{path_out}/logs/{page}",image)
-            #     pass
+            try:
+                layout = self.model.detect(image)
+            except Exception as e:
+                self.logger(e,image_path,path_out)
+                cv2.imwrite(f"{path_out}/logs/{page}",image)
+                pass
+            try:
+                self.save_figures_from_the_page(layout,image_path,path_out)
+            except Exception as e:
+                self.logger(e,image_path,path_out)
+                cv2.imwrite(f"{path_out}/logs/{page}",image)
+                pass
+            try:
+                self.save_description_from_the_page(layout,image_path,path_out)
+            except Exception as e:
+                self.logger(e,image_path,path_out)
+                cv2.imwrite(f"{path_out}/logs/{page}",image)
+                pass
+            try:
+                layout = self.mfd_model.detect(image)
+                self.save_formulas_from_the_page(layout,image_path,path_out)
+            except Exception as e:
+                self.logger(e,image_path,path_out)
+                cv2.imwrite(f"{path_out}/logs/{page}",image)
 
-            layout = self.model.detect(image)
-            self.save_figures_from_the_page(layout,image_path,path_out)
-            self.save_description_from_the_page(layout,image_path,path_out)
-            layout = self.mfd_model.detect(image)
-            self.save_formulas_from_the_page(layout,image_path,path_out)
 
         #     os.remove(image_path)
         # os.rmdir(temp_path)
