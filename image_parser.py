@@ -420,9 +420,9 @@ class ImageParser():
         if not os.path.exists(f"{formula_path}"):
             os.makedirs(f"{formula_path}")
 
-        cv2.imwrite(f"{formula_path}/formula_{formula_num}", im)
+        cv2.imwrite(f"{formula_path}/formula_{formula_num}.png", im)
 
-        self.write_to_json(f"{formula_path}","formula_{formula_num}.png",item_description='',object_type='formula')
+        self.write_to_json(f"{formula_path}","formula_{formula_num}",item_description='',object_type='formula')
 
     # Сохраняет изображения (таблицы) со страницы документа
     def save_figures_from_the_page(self,layout,image_path,figures_path):
