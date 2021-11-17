@@ -82,8 +82,6 @@ class ImageParser():
             with open(temp_path, "r") as read_file:
                 fig_dict = json.load(read_file)
             # fig_dict = sorted()
-        # удаляем файл
-            os.remove(temp_path)
             return fig_dict[object_type]
 
     # Метод, извлекающий описание к изображению или таблице
@@ -403,15 +401,14 @@ class ImageParser():
         x_2,y_2 = np.ceil(block['x_2']),np.ceil(block['y_2'])
 
         im = cv2.imread(image_path)
-        # Получаем отношение ширины таблицы к ширине страницы,
-        # а также отношение высототы таблицы к высоте страницы
+
+        page_hight = im.shape[0]
         page_width = im.shape[1]
 
         delta_x = int((page_width - x_2)*0.95)
-        # delta_x = page_width
-        print(page_width,int(x_2)+delta_x)
-        im_desc = im[int(y_1):int(y_1),int(x_1):int(x_2)+delta_x]
-        # im_desc = im[int(y_1):int(y_1),int(x_1):delta_x]
+        delta_y = int(page_hight*0.05)
+
+        im_desc = im[int(y_1)+delta_y:int(y_2)+delta_y,int(x_1):int(x_2)+delta_x]
 
         formula_text = self.ocr_agent.detect(im_desc)
         result = re.search(self.pattern_formula_desc,formula_text)
@@ -423,9 +420,9 @@ class ImageParser():
             if not os.path.exists(f"{formula_path}"):
                 os.makedirs(f"{formula_path}")
 
-            cv2.imwrite(f"{formula_path}", im)
+            cv2.imwrite(f"{formula_path}/formula_{formula_num}", im)
 
-            self.write_to_json(f"{formula_path}",formula_num,item_description='',object_type='formula')
+            self.write_to_json(f"{formula_path}","formula_{formula_num}.png",item_description='',object_type='formula')
             
         except AttributeError:
             pass
