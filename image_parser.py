@@ -413,19 +413,16 @@ class ImageParser():
         formula_text = self.ocr_agent.detect(im_desc)
         result = re.search(self.pattern_formula_desc,formula_text)
         im = im[int(y_1):int(y_2),int(x_1):int(x_2)]
-        try:
-            formula_num = result.group(0)
-            formula_num.replace("(","_").replace(")","").lower()
 
-            if not os.path.exists(f"{formula_path}"):
-                os.makedirs(f"{formula_path}")
+        formula_num = result.group(0)
+        formula_num.replace("(","_").replace(")","").lower()
 
-            cv2.imwrite(f"{formula_path}/formula_{formula_num}", im)
+        if not os.path.exists(f"{formula_path}"):
+            os.makedirs(f"{formula_path}")
 
-            self.write_to_json(f"{formula_path}","formula_{formula_num}.png",item_description='',object_type='formula')
-            
-        except AttributeError:
-            pass
+        cv2.imwrite(f"{formula_path}/formula_{formula_num}", im)
+
+        self.write_to_json(f"{formula_path}","formula_{formula_num}.png",item_description='',object_type='formula')
 
     # Сохраняет изображения (таблицы) со страницы документа
     def save_figures_from_the_page(self,layout,image_path,figures_path):
