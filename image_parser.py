@@ -1,7 +1,5 @@
 from abc import abstractmethod
 import os
-import sys
-import argparse
 import re
 import json
 from tqdm import tqdm
@@ -34,12 +32,13 @@ class ImageParser():
                                                 )
         self.mfd_model = lp.Detectron2LayoutModel('lp://MFD/faster_rcnn_R_50_FPN_3x/config',
                         extra_config=["MODEL.ROI_HEADS.SCORE_THRESH_TEST", 0.79], label_map={1: "Equation"})                                                     
-        self.pattern_fig = re.compile("Fig. \d*|Figure \d*|Scheme \d*",re.IGNORECASE)
+        self.pattern_fig = re.compile("Fig. \d*|Figure \d*|Scheme \d*|Chart \d*",re.IGNORECASE)
         self.pattern_table = re.compile("Table \d*[^.,]",re.IGNORECASE)
         self.pattern_fig_desc = re.compile("Fig. \d*[\.\:] [A-Z][\s\S]+|"
-                                            "Figure \d*[\.\:] [A-Z][\s\S]+|Scheme \d* [A-Z][\.\:][\s\S]+",re.IGNORECASE)
+                                            "Figure \d*[\.\:] [A-Z][\s\S]+|Scheme \d* [A-Z][\.\:][\s\S]+"
+                                            "|Chart \d* [A-Z][\.\:][\s\S]+",re.IGNORECASE)
         self.pattern_table_desc = re.compile("Table \d*[\s\S]+?(?=\n\n)",re.IGNORECASE)
-        self.pattern_formula_desc = re.compile("\(\S{1,5}\)")
+        self.pattern_formula_desc = re.compile("\(\d{1,3}\.{0,1}\d{0,3}\)|\([A-Za-z]{1}\)|\([I,V,X,L]{1,4}[a-z]{0,1}\)")
 
         self.ocr_agent = lp.TesseractAgent(languages='eng')
 
@@ -136,9 +135,10 @@ class ImageParser():
         # Получаем отношение ширины изображения к ширине страницы,
         # а также отношение высототы изображения к высоте страницы
         page_width = im.shape[1]
+        page_height = im.shape[0]
         figure_width = x_2-x_1
         fw_to_iw = figure_width/page_width
-        fh_to_ph = (y_2-y_1)/im.shape[0]
+        fh_to_ph = (y_2-y_1)/page_height
 
         # Изображения на всю страницу
         if (fh_to_ph > 0.785) and (fw_to_iw > 0.60):
@@ -169,8 +169,11 @@ class ImageParser():
                 else:
                     delta_x = int(page_width*(0.49 - fw_to_iw )/2)
                 delta_y = int((y_2-y_1)*y_percent)
+
+            y_2_plus_delta = int(np.clip(y_2 + delta_y,0,page_height))
+            x_1_minus_delta = int(np.clip(x_1 - delta_x,0,page_width))
             
-            im_desc = im[int(y_2):int(y_2)+delta_y,int(x_1)-delta_x:int(x_2)]
+            im_desc = im[int(y_2):y_2_plus_delta,x_1_minus_delta:int(x_2)]
 
             figure = im[int(y_1):int(y_2),int(x_1):int(x_2)]
 
@@ -305,9 +308,10 @@ class ImageParser():
         # Получаем отношение ширины таблицы к ширине страницы,
         # а также отношение высототы таблицы к высоте страницы
         page_width = im.shape[1]
+        page_height = im.shape[0]
         figure_width = x_2-x_1
         fw_to_iw = figure_width/page_width
-        fh_to_ph = (y_2-y_1)/im.shape[0]
+        fh_to_ph = (y_2-y_1)/page_height
 
         # Таблица на всю страницу
         if (fh_to_ph > 0.785) and (fw_to_iw > 0.60):
@@ -346,8 +350,10 @@ class ImageParser():
                     delta_x = int(page_width*(0.49 - fw_to_iw )/2)
                 delta_y = int((y_2-y_1)*y_percent)
             
-            
-            im_desc = im[int(y_1)-delta_y:int(y_1),int(x_1)-delta_x:int(x_2)]
+            y_1_minus_delta = int(np.clip(y_1 - delta_y,0,page_height))
+            x_1_minus_delta = int(np.clip(x_1 - delta_x,0,page_width))
+
+            im_desc = im[y_1_minus_delta:int(y_1),x_1_minus_delta:int(x_2)]
 
             im = im[int(y_1):int(y_2),int(x_1):int(x_2)]
 
@@ -402,11 +408,11 @@ class ImageParser():
 
         im = cv2.imread(image_path)
 
-        page_hight = im.shape[0]
+        page_height = im.shape[0]
         page_width = im.shape[1]
 
         delta_x = int((page_width - x_2)*0.95)
-        delta_y = int(page_hight*0.05)
+        delta_y = int(page_height*0.05)
 
         im_desc = im[int(y_1)+delta_y:int(y_2)+delta_y,int(x_1):int(x_2)+delta_x]
 
