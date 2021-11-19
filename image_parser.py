@@ -7,13 +7,11 @@ import numpy as np
 import cv2
 import layoutparser as lp
 from pdf2image import convert_from_path
+# from modules.formula_extractor import save_formulas
 
 from warnings import filterwarnings
 
 filterwarnings('ignore')
-
-PATTERN_FORMULA_DESC = re.compile("\d{1,3}\.{0,1}\d{0,3}|/^[a-zA-Z]{1}$/"
-                                                "|/^[I,V,X,L]{1,4}[a-z]{0,1}$/",re.IGNORECASE)
 
 # принимает две точки, возвращает расстояние между точками
 def calculate_distance(x,x_,y,y_):
@@ -24,81 +22,6 @@ def calculate_double_distance(pair_of_coordinates_0, pair_of_coordinates_1):
     x_0,x_0_,y_0,y_0_ = pair_of_coordinates_0
     x_1,x_1_,y_1,y_1_ = pair_of_coordinates_1
     return calculate_distance(x_0,x_0_,y_0,y_0_) + calculate_distance(x_1,x_1_,y_1,y_1_)
-
-def get_required_page(path_out_temp,pages_list,page_number):
-    page_with_the_formula = pages_list[page_number - 1]
-    page_path = os.path.join(path_out_temp,page_with_the_formula)
-
-    return cv2.imread(page_path)
-
-def get_scale_coeficients(page_image,pdf_page_width,pdf_page_height):
-    x_scale_coefficient = page_image.shape[1] / pdf_page_width
-    y_scale_coefficient = page_image.shape[0] / pdf_page_height
-
-    return x_scale_coefficient,y_scale_coefficient
-
-def get_scaled_coordinates_for_cv2(x_scale_coefficient,y_scale_coefficient,x_1,y_1,x_l,y_l):
-    x_1 = x_1 * x_scale_coefficient
-    y_1 = y_1 * y_scale_coefficient
-    x_2 = x_1 + x_l * x_scale_coefficient
-    y_2 = y_1 + y_l * y_scale_coefficient
-
-    return int(y_1),int(y_2),int(x_1),int(x_2)
-
-def get_formula_image(path_out_temp,pages_list,pdf_page_width,pdf_page_height,page_number,x_1,y_1,x_l,y_l):
-    page_image = get_required_page(path_out_temp,pages_list,page_number)
-    x_scale_coefficient,y_scale_coefficient = get_scale_coeficients(page_image,pdf_page_width,pdf_page_height)
-    y_1,y_2,x_1,x_2 = get_scaled_coordinates_for_cv2(x_scale_coefficient,y_scale_coefficient,x_1,y_1,x_l,y_l)
-
-    return page_image[int(y_1):int(y_2),int(x_1):int(x_2)]
-
-def write_to_json(file_directory,item_name,item_description="",object_type='figure'):
-    object_id = f'{object_type}_id'
-    item = {object_id:item_name,'describe':item_description}
-    field_name = f"{object_type}s"
-    if not os.path.exists(os.path.join(file_directory,"temp.json")):
-        fig_dict = {field_name:[item]}
-        with open(os.path.join(file_directory,"temp.json"),'w') as write_file:
-            json.dump(fig_dict, write_file)
-    else:
-        with open(os.path.join(file_directory,"temp.json"), "r") as write_file:
-            fig_dict = json.load(write_file)
-            is_absent = True
-            for count in range(len(fig_dict[field_name])):
-                if item_name == fig_dict[field_name][count][object_id]:
-                    fig_dict[field_name][count] = item
-                    is_absent = False
-
-            if is_absent == True:
-                fig_dict[field_name].append(item)
-
-        with open(os.path.join(file_directory,"temp.json"), "w") as write_file:
-            json.dump(fig_dict, write_file)
-
-def save_formulas(path_out):
-    with open(f"{path_out}/temp.json") as read_file:
-        formulas_dict = json.load(read_file)
-
-    pdf_page_width = float(formulas_dict["lrx"])
-    pdf_page_height = float(formulas_dict["lry"])
-    path_temp = os.path.join(path_out,'temp')
-
-    pages = os.listdir(path_temp)
-    pages.sort()
-
-    save_formula_directory = os.path.join(path_out,'formulas')
-
-    for key,value in formulas_dict['coordinates'].items():
-        try:
-            search_result = re.search(PATTERN_FORMULA_DESC,key)
-            formula_num = search_result.group(0)
-            formula_coordinates = [float(item) if item != value.split(',')[0] else int(item) for item in value.split(',')]
-            formula_image = get_formula_image(path_temp,pages,pdf_page_width,pdf_page_height,*formula_coordinates)
-            formula_id = f"formula_{formula_num}"
-            cv2.imwrite(f"{save_formula_directory}/{formula_id}.png", formula_image)
-            write_to_json(save_formula_directory,formula_id,object_type="formula")
-        except AttributeError:
-            pass
 
 class ImageParser():
 
@@ -532,13 +455,13 @@ class ImageParser():
                 self.logger(e,image_path,path_out)
                 cv2.imwrite(f"{path_out}/logs/{page}",image)
                 pass
-            try:
-                save_formulas(path_out)
-                # layout = self.mfd_model.detect(image)
-                # self.save_formulas_from_the_page(layout,image_path,path_out)
-            except Exception as e:
-                self.logger(e,image_path,path_out)
-                cv2.imwrite(f"{path_out}/logs/{page}",image)
+            # try:
+            #     # save_formulas(path_out)
+            #     # layout = self.mfd_model.detect(image)
+            #     # self.save_formulas_from_the_page(layout,image_path,path_out)
+            # except Exception as e:
+            #     self.logger(e,image_path,path_out)
+            #     cv2.imwrite(f"{path_out}/logs/{page}",image)
 
 
         # #     os.remove(image_path)
