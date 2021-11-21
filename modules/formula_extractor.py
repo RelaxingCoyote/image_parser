@@ -6,6 +6,11 @@ import cv2
 PATTERN_FORMULA_DESC = re.compile("\d{1,3}\.{0,1}\d{0,3}|/^[a-zA-Z]{1}$/"
                                                 "|/^[I,V,X,L]{1,4}[a-z]{0,1}$/",re.IGNORECASE)
 
+FORMULA_FRAME_PADDING = {
+    'y_pad' : 0.05,
+    'x_pad' : 0.0
+}
+
 def create_required_dirs_if_dont_exist(dir_path):
     if not os.path.exists(dir_path):
       os.makedirs(dir_path)
@@ -22,11 +27,16 @@ def get_scale_coeficients(page_image,pdf_page_width,pdf_page_height):
 
     return x_scale_coefficient,y_scale_coefficient
 
+def get_formula_coords_padding(y_1,y_2,x_1,x_2,y_pad,x_pad):
+    return y_1*(1-y_pad/2),y_2*(1+y_pad/2),x_1*(1-x_pad/2),x_2*(1+x_pad/2)
+
 def get_scaled_coordinates_for_cv2(x_scale_coefficient,y_scale_coefficient,x_1,y_1,x_l,y_l):
     x_1 = x_1 * x_scale_coefficient
     y_1 = y_1 * y_scale_coefficient
     x_2 = x_1 + x_l * x_scale_coefficient
     y_2 = y_1 + y_l * y_scale_coefficient
+
+    y_1,y_2,x_1,x_2 = get_formula_coords_padding(y_1,y_2,x_1,x_2,**FORMULA_FRAME_PADDING)
 
     return int(y_1),int(y_2),int(x_1),int(x_2)
 
