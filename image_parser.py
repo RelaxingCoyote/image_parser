@@ -13,15 +13,52 @@ from warnings import filterwarnings
 
 filterwarnings('ignore')
 
-# принимает две точки, возвращает расстояние между точками
-def calculate_distance(x,x_,y,y_):
-    return np.sqrt((x + x_)**2 + (y + y_)**2)
+SECOND_TO_FIRST_COLUMN_RATIO = 5.0
 
-# принимает две пары точек, возвращает сумму расстояний между двумя парами точек
-def calculate_double_distance(pair_of_coordinates_0, pair_of_coordinates_1):
-    x_0,x_0_,y_0,y_0_ = pair_of_coordinates_0
-    x_1,x_1_,y_1,y_1_ = pair_of_coordinates_1
-    return calculate_distance(x_0,x_0_,y_0,y_0_) + calculate_distance(x_1,x_1_,y_1,y_1_)
+def sort_layout_blocks(layout_blocks):
+    for i in range(len(layout_blocks)):
+        for j in range(i,len(layout_blocks)):
+            if not layout_blocks[j]['x_1'] / layout_blocks[i]['x_1'] > SECOND_TO_FIRST_COLUMN_RATIO:
+                if layout_blocks[j]['y_1'] <= layout_blocks[i]['y_1'] :
+                    layout_blocks[i], layout_blocks[j] = layout_blocks[j], layout_blocks[i]
+                elif layout_blocks[j]['x_1'] / layout_blocks[i]['x_1'] < 1 / SECOND_TO_FIRST_COLUMN_RATIO:
+                    layout_blocks[i], layout_blocks[j] = layout_blocks[j], layout_blocks[i]
+
+    return layout_blocks
+
+def get_coordinates(bounding_boxes_block):
+    x_1,y_1 = int(np.floor(bounding_boxes_block['x_1'])),int(np.floor(bounding_boxes_block['y_1']))
+    x_2,y_2 = int(np.ceil(bounding_boxes_block['x_2'])),int(np.ceil(bounding_boxes_block['y_2']))
+
+    return y_1, y_2, x_1, x_2
+
+def get_bigger_number(f_1,f_2):
+    return f_1 if f_1 > f_2 else f_2
+
+def get_smaler_number(f_1,f_2):
+    return f_1 if f_1 < f_2 else f_2
+
+def get_union_cooridnates(layout_block_1,layout_block_2,union_impossible_return_block='upper'):
+    y_1_upper, y_2_upper, x_1_upper, x_2_upper = get_coordinates(layout_block_1)
+    y_1_lower, y_2_lower, x_1_lower, x_2_lower = get_coordinates(layout_block_2)
+
+    if not x_1_upper / x_1_lower < 1 / SECOND_TO_FIRST_COLUMN_RATIO or not x_1_upper / x_1_lower > SECOND_TO_FIRST_COLUMN_RATIO:
+        y_1_union = get_smaler_number(y_1_upper,y_1_lower)
+        x_1_union = get_smaler_number(x_1_upper,x_1_lower)
+
+        y_2_union = get_bigger_number(y_2_upper,y_2_lower)
+        x_2_union = get_bigger_number(x_2_upper,x_2_lower)
+
+        return y_1_union, y_2_union,  x_1_union, x_2_union
+
+    if union_impossible_return_block == 'upper':
+        return y_1_upper, y_2_upper, x_1_upper, x_2_upper
+    else:
+        return y_1_lower, y_2_lower, x_1_lower, x_2_lower
+
+def get_fig_info(pattern,text):
+    result = re.search(pattern,text)
+    return result.group(0)
 
 class ImageParser():
 
@@ -31,8 +68,8 @@ class ImageParser():
                                                 extra_config=["MODEL.ROI_HEADS.SCORE_THRESH_TEST", 0.80],
                                                 label_map={0: "Text", 1: "Title", 2: "List", 3:"Table", 4:"Figure"}
                                                 )
-        self.mfd_model = lp.Detectron2LayoutModel('lp://MFD/faster_rcnn_R_50_FPN_3x/config',
-                        extra_config=["MODEL.ROI_HEADS.SCORE_THRESH_TEST", 0.79], label_map={1: "Equation"})                                                     
+        # self.mfd_model = lp.Detectron2LayoutModel('lp://MFD/faster_rcnn_R_50_FPN_3x/config',
+        #                 extra_config=["MODEL.ROI_HEADS.SCORE_THRESH_TEST", 0.79], label_map={1: "Equation"})                                                     
         self.pattern_fig = re.compile("Fig. \d*|Figure \d*|Scheme \d*|Chart \d*",re.IGNORECASE)
         self.pattern_table = re.compile("Table \d*[^.,]",re.IGNORECASE)
         self.pattern_fig_desc = re.compile("Fig. \d*[\.\:] [A-Z][\s\S]+|"
@@ -83,149 +120,178 @@ class ImageParser():
             # fig_dict = sorted()
             return fig_dict[object_type]
     
+def get_figures_with_info(self,layout_blocks_sorted,page_path,figures_path):
+    blocks_volume = len(layout_blocks_sorted)
+    for block_num in range(blocks_volume):
+        if layout_blocks_sorted[block_num]['type'] == "Figure":
+            y_1, y_2, x_1, x_2 = get_coordinates(layout_blocks_sorted[block_num])
+            page_image = cv2.imread(page_path)
+            figure = page_image[int(y_1):int(y_2),int(x_1):int(x_2)]
+            if block_num != blocks_volume - 1:
+                y_1_union, y_2_union, x_1_union, x_2_union = get_union_cooridnates(layout_blocks_sorted[block_num],
+                                                                                    layout_blocks_sorted[block_num+1])
+            else:
+                y_1_union, y_2_union, x_1_union, x_2_union = y_1, y_2, x_1, x_2
+            fig_union_image = page_image[y_1_union:y_2_union,x_1_union:x_2_union]
+            try:
+                figure_text = self.ocr_agent.detect(fig_union_image)
+                result = re.search(self.pattern_fig,figure_text)
+                fig_num = result.group(0)
+                fig_name = fig_num.replace(" ","_").replace(".","").lower()
+                if not os.path.exists(f"{figures_path}/figures"):
+                    os.makedirs(f"{figures_path}/figures")
 
-    # Метод, извлекающий описание к изображению или таблице
-    def get_fig_desc(self,text_block,image_path):
-        x_1,y_1 = np.floor(text_block['x_1']),np.floor(text_block['y_1'])
-        x_2,y_2 = np.ceil(text_block['x_2']),np.ceil(text_block['y_2'])
+                cv2.imwrite(f"{figures_path}/figures/{fig_name}.png", figure)
+                self.write_to_json(f"{figures_path}/figures",fig_name,object_type ='figure')
+                description = re.search(self.pattern_fig_desc,figure_text)
+                description = description.group(0)
+                self.write_to_json(f"{figures_path}/figures",fig_name,item_description=description,object_type ='figure')
+            except AttributeError:
+                self.save_image_as_it_is(self,layout_blocks_sorted[block_num],page_path,
+                            figures_path,object_type="figures")
 
-        im = cv2.imread(image_path)
-        text_image = im[int(y_1):int(y_2),int(x_1):int(x_2)]
+    # # Метод, извлекающий описание к изображению или таблице
+    # def get_fig_desc(self,text_block,image_path):
+    #     x_1,y_1 = np.floor(text_block['x_1']),np.floor(text_block['y_1'])
+    #     x_2,y_2 = np.ceil(text_block['x_2']),np.ceil(text_block['y_2'])
+    
+    #     im = cv2.imread(image_path)
+    #     text_image = im[int(y_1):int(y_2),int(x_1):int(x_2)]
 
-        text = self.ocr_agent.detect(text_image)
-        result = re.search(self.pattern_fig_desc,text)
-        fig_desc = result.group(0)
-        return fig_desc
+    #     text = self.ocr_agent.detect(text_image)
+    #     result = re.search(self.pattern_fig_desc,text)
+    #     fig_desc = result.group(0)
+    #     return fig_desc
 
-    def save_description_from_the_page(self,layout,image_path,out_path):
-        figures_path = f"{out_path}/figures"
-        if os.path.exists(figures_path):
-            for block in layout.to_dict()['blocks']:
-                if block['type'] == "Text" or block['type'] == "Title":
-                    try:
-                        fig_desc = self.get_fig_desc(block,image_path)
-                        result = re.search(self.pattern_fig,fig_desc)
-                        fig_num = result.group(0)
+    # def save_description_from_the_page(self,layout,image_path,out_path):
+    #     figures_path = f"{out_path}/figures"
+    #     if os.path.exists(figures_path):
+    #         for block in layout.to_dict()['blocks']:
+    #             if block['type'] == "Text" or block['type'] == "Title":
+    #                 try:
+    #                     fig_desc = self.get_fig_desc(block,image_path)
+    #                     result = re.search(self.pattern_fig,fig_desc)
+    #                     fig_num = result.group(0)
 
-                        fig_id = fig_num.replace(" ","_").replace(".","").lower()
-                        if os.path.exists(os.path.join(figures_path,"temp.json")):
-                            with open(os.path.join(figures_path,"temp.json"), "r") as read_file:
-                                fig_dict = json.load(read_file)
-                            for count in range(len(fig_dict['figures'])):   
-                                if fig_id == fig_dict['figures'][count]['figure_id']:
-                                    # убираем номер изображения из строки описания
-                                    fig_desc = fig_desc.replace(fig_num,"")
-                                    fig_desc = fig_desc.strip("\n\f")
-                                    fig_desc = fig_desc[2:]
-                                    fig_dict['figures'][count]['describe'] = fig_desc
-                                    # self.write_to_json(self,figures_path,fig_num,fig_desc)
-                                with open(os.path.join(figures_path,"temp.json"), "w") as write_file:
-                                    json.dump(fig_dict, write_file) 
+    #                     fig_id = fig_num.replace(" ","_").replace(".","").lower()
+    #                     if os.path.exists(os.path.join(figures_path,"temp.json")):
+    #                         with open(os.path.join(figures_path,"temp.json"), "r") as read_file:
+    #                             fig_dict = json.load(read_file)
+    #                         for count in range(len(fig_dict['figures'])):   
+    #                             if fig_id == fig_dict['figures'][count]['figure_id']:
+    #                                 # убираем номер изображения из строки описания
+    #                                 fig_desc = fig_desc.replace(fig_num,"")
+    #                                 fig_desc = fig_desc.strip("\n\f")
+    #                                 fig_desc = fig_desc[2:]
+    #                                 fig_dict['figures'][count]['describe'] = fig_desc
+    #                                 # self.write_to_json(self,figures_path,fig_num,fig_desc)
+    #                             with open(os.path.join(figures_path,"temp.json"), "w") as write_file:
+    #                                 json.dump(fig_dict, write_file) 
 
-                    except AttributeError:
-                        pass
+    #                 except AttributeError:
+    #                     pass
 
     
-    # Вытаскиваем описание описание строго снизу
-    def get_fig_n_below(self,fig_block,image_path,figures_path):
-        # Получим координаты изображения
-        x_1,y_1 = np.floor(fig_block['x_1']),np.floor(fig_block['y_1'])
-        x_2,y_2 = np.ceil(fig_block['x_2']),np.ceil(fig_block['y_2'])
+    # # Вытаскиваем описание описание строго снизу
+    # def get_fig_n_below(self,fig_block,image_path,figures_path):
+    #     # Получим координаты изображения
+    #     x_1,y_1 = np.floor(fig_block['x_1']),np.floor(fig_block['y_1'])
+    #     x_2,y_2 = np.ceil(fig_block['x_2']),np.ceil(fig_block['y_2'])
 
-        im = cv2.imread(image_path)
-        # Получаем отношение ширины изображения к ширине страницы,
-        # а также отношение высототы изображения к высоте страницы
-        page_width = im.shape[1]
-        page_height = im.shape[0]
-        figure_width = x_2-x_1
-        fw_to_iw = figure_width/page_width
-        fh_to_ph = (y_2-y_1)/page_height
+    #     im = cv2.imread(image_path)
+    #     # Получаем отношение ширины изображения к ширине страницы,
+    #     # а также отношение высототы изображения к высоте страницы
+    #     page_width = im.shape[1]
+    #     page_height = im.shape[0]
+    #     figure_width = x_2-x_1
+    #     fw_to_iw = figure_width/page_width
+    #     fh_to_ph = (y_2-y_1)/page_height
 
-        # Изображения на всю страницу
-        if (fh_to_ph > 0.785) and (fw_to_iw > 0.60):
-            im_desc = cv2.rotate(im, cv2.cv2.ROTATE_90_CLOCKWISE)
-            # Переворачиваем изображение
-            figure = im[int(y_1):int(y_2),int(x_1):int(x_2)]
-            figure = cv2.rotate(figure, cv2.cv2.ROTATE_90_CLOCKWISE)
-        # Изображение не на всю страницу
-        else:
-            # Доля от высоты изображения, на которую мы будем спускаться в поисках номера изображения
-            y_percent = 0.125
-            if fh_to_ph < 0.2:
-                y_percent = 0.19
-            elif fh_to_ph >= 0.6:
-                y_percent = 0.08
+    #     # Изображения на всю страницу
+    #     if (fh_to_ph > 0.785) and (fw_to_iw > 0.60):
+    #         im_desc = cv2.rotate(im, cv2.cv2.ROTATE_90_CLOCKWISE)
+    #         # Переворачиваем изображение
+    #         figure = im[int(y_1):int(y_2),int(x_1):int(x_2)]
+    #         figure = cv2.rotate(figure, cv2.cv2.ROTATE_90_CLOCKWISE)
+    #     # Изображение не на всю страницу
+    #     else:
+    #         # Доля от высоты изображения, на которую мы будем спускаться в поисках номера изображения
+    #         y_percent = 0.125
+    #         if fh_to_ph < 0.2:
+    #             y_percent = 0.19
+    #         elif fh_to_ph >= 0.6:
+    #             y_percent = 0.08
 
-            # Если изображение в два столбца текста
-            if fw_to_iw >= 0.485:
-                delta_x = int(x_1*0.95)
-                delta_y = int((y_2-y_1)*y_percent)
+    #         # Если изображение в два столбца текста
+    #         if fw_to_iw >= 0.485:
+    #             delta_x = int(x_1*0.95)
+    #             delta_y = int((y_2-y_1)*y_percent)
 
-            # Если изображение помещается в один столбец текста
-            else:
-                # Если изображение находится в правом столбце
-                if page_width - x_2> x_1:
-                    delta_x = int(x_1*0.48)
-                # Если изображение в столбце слева
-                else:
-                    delta_x = int(page_width*(0.49 - fw_to_iw )/2)
-                delta_y = int((y_2-y_1)*y_percent)
+    #         # Если изображение помещается в один столбец текста
+    #         else:
+    #             # Если изображение находится в правом столбце
+    #             if page_width - x_2> x_1:
+    #                 delta_x = int(x_1*0.48)
+    #             # Если изображение в столбце слева
+    #             else:
+    #                 delta_x = int(page_width*(0.49 - fw_to_iw )/2)
+    #             delta_y = int((y_2-y_1)*y_percent)
 
-            y_2_plus_delta = int(np.clip(y_2 + delta_y,0,page_height))
-            x_1_minus_delta = int(np.clip(x_1 - delta_x,0,page_width))
+    #         y_2_plus_delta = int(np.clip(y_2 + delta_y,0,page_height))
+    #         x_1_minus_delta = int(np.clip(x_1 - delta_x,0,page_width))
             
-            im_desc = im[int(y_2):y_2_plus_delta,x_1_minus_delta:int(x_2)]
+    #         im_desc = im[int(y_2):y_2_plus_delta,x_1_minus_delta:int(x_2)]
 
-            figure = im[int(y_1):int(y_2),int(x_1):int(x_2)]
+    #         figure = im[int(y_1):int(y_2),int(x_1):int(x_2)]
 
-        figure_text = self.ocr_agent.detect(im_desc)
-        result = re.search(self.pattern_fig,figure_text)
-        fig_num = result.group(0)
+    #     figure_text = self.ocr_agent.detect(im_desc)
+    #     result = re.search(self.pattern_fig,figure_text)
+    #     fig_num = result.group(0)
 
-        fig_name = fig_num.replace(" ","_").replace(".","").lower()
-        if not os.path.exists(f"{figures_path}/figures"):
-            os.makedirs(f"{figures_path}/figures")
+    #     fig_name = fig_num.replace(" ","_").replace(".","").lower()
+    #     if not os.path.exists(f"{figures_path}/figures"):
+    #         os.makedirs(f"{figures_path}/figures")
 
-        cv2.imwrite(f"{figures_path}/figures/{fig_name}.png", figure)
-        self.write_to_json(f"{figures_path}/figures",fig_name,object_type ='figure')             
+    #     cv2.imwrite(f"{figures_path}/figures/{fig_name}.png", figure)
+    #     self.write_to_json(f"{figures_path}/figures",fig_name,object_type ='figure')             
 
-    # Вытаскиваем описание описание справа или слева от изображения
-    def get_fig_n_sides(self,fig_block,image_path,figures_path):
-        # Получим координаты изображения
-        x_1,y_1 = np.floor(fig_block['x_1']),np.floor(fig_block['y_1'])
-        x_2,y_2 = np.ceil(fig_block['x_2']),np.ceil(fig_block['y_2'])
+    # # Вытаскиваем описание описание справа или слева от изображения
+    # def get_fig_n_sides(self,fig_block,image_path,figures_path):
+    #     # Получим координаты изображения
+    #     x_1,y_1 = np.floor(fig_block['x_1']),np.floor(fig_block['y_1'])
+    #     x_2,y_2 = np.ceil(fig_block['x_2']),np.ceil(fig_block['y_2'])
 
-        im = cv2.imread(image_path)
-        page_width = im.shape[1]
-        figure_width = x_2 - x_1
-        fw_to_iw = figure_width/page_width
+    #     im = cv2.imread(image_path)
+    #     page_width = im.shape[1]
+    #     figure_width = x_2 - x_1
+    #     fw_to_iw = figure_width/page_width
 
-        if page_width-x_2 > x_1:
-            # Описание находится справа
-            delta_x = int((page_width - x_2)*0.35)
-            delta_y = int((y_2 - y_1)*0.02)
-            im_desc = im[int(y_1)-delta_y:int(y_2)+delta_y,int(x_1):int(x_2)+delta_x]
-        else:
-            # Описание нахоидтся слева
-            delta_x = int(x_1*0.95)
-            delta_y = int((y_2 - y_1)*0.02)
-            im_desc = im[int(y_1)-delta_y:int(y_2)+delta_y,int(x_1)-delta_x:int(x_2)]
+    #     if page_width-x_2 > x_1:
+    #         # Описание находится справа
+    #         delta_x = int((page_width - x_2)*0.35)
+    #         delta_y = int((y_2 - y_1)*0.02)
+    #         im_desc = im[int(y_1)-delta_y:int(y_2)+delta_y,int(x_1):int(x_2)+delta_x]
+    #     else:
+    #         # Описание нахоидтся слева
+    #         delta_x = int(x_1*0.95)
+    #         delta_y = int((y_2 - y_1)*0.02)
+    #         im_desc = im[int(y_1)-delta_y:int(y_2)+delta_y,int(x_1)-delta_x:int(x_2)]
 
-        # Распознаём текст описания
-        figure_text = self.ocr_agent.detect(im_desc)
-        result = re.search(self.pattern_fig,figure_text)
-        fig_num = result.group(0)
+    #     # Распознаём текст описания
+    #     figure_text = self.ocr_agent.detect(im_desc)
+    #     result = re.search(self.pattern_fig,figure_text)
+    #     fig_num = result.group(0)
 
 
-        fig_name = fig_num.replace(" ","_").replace(".","").lower()
+    #     fig_name = fig_num.replace(" ","_").replace(".","").lower()
 
-        if not os.path.exists(f"{figures_path}/figures"):
-            os.makedirs(f"{figures_path}/figures")
+    #     if not os.path.exists(f"{figures_path}/figures"):
+    #         os.makedirs(f"{figures_path}/figures")
 
-        figure = im[int(y_1):int(y_2),int(x_1):int(x_2)]
-        cv2.imwrite(f"{figures_path}/figures/{fig_name}.png", figure)
+    #     figure = im[int(y_1):int(y_2),int(x_1):int(x_2)]
+    #     cv2.imwrite(f"{figures_path}/figures/{fig_name}.png", figure)
 
-        self.write_to_json(f"{figures_path}/figures",fig_name,object_type ='figure') 
+    #     self.write_to_json(f"{figures_path}/figures",fig_name,object_type ='figure') 
 
     # Сохраняет изображение как undefined_n
     def save_image_as_it_is(self,fig_block,image_path,
@@ -263,41 +329,6 @@ class ImageParser():
             image_name = image_name_pattern + str(image_number)
 
         cv2.imwrite(f"{figures_path}/{object_type}/untitled_{object_type}/{image_name}.png", figure)
-    
-    # Сохраняет предоставленное изображение
-    # В случае наличия номера в виде Fig. n, Figure n или Scheme n сохраняет в виде
-    # fig_n, figure_n или scheme_n
-    def save_figure_with_number(self,fig_block,image_path,figures_path):
-        # Предположим, что у изображения есть описание
-        try:
-            # Допустим описание к изображению находится снизу
-            try:
-                self.get_fig_n_below(fig_block,image_path,figures_path)
-
-            # Допустим описание к изображению находится справа или слева   
-            except AttributeError:
-                self.get_fig_n_sides(fig_block,image_path,figures_path)
-        # Изображения без описания
-        except AttributeError:
-            self.save_image_as_it_is(fig_block,image_path,figures_path)
-
-    def get_the_closest_block_beneath(self,layout,coordinate_list):
-        y_1, y_2, x_1, x_2 = coordinate_list
-
-        closest_block_beneath = None
-        closest_block_beneath_distance = np.inf()
-        for block in layout.to_dict()['blocks']:
-            if block['type'] == "Text" or block['type'] == "Title":
-                y_1_cbb, y_2_cbb, x_1_cbb, x_2_cbb = self.get_coordinates(block)
-                if y_1_cbb < y_2:
-                    dot_pair_0 = [x_1,x_1_cbb,y_2,y_1_cbb]
-                    dot_pair_1 = [x_2,x_2_cbb,y_2,y_1_cbb]
-                    closest_block_beneath_distance_new = calculate_double_distance(dot_pair_0,dot_pair_1)
-                    if closest_block_beneath_distance_new < closest_block_beneath_distance:
-                        closest_block_beneath_distance = closest_block_beneath_distance_new
-                        closest_block_beneath = block
-
-        return closest_block_beneath
     
     # Вытаскиваем описание описание строго снизу
     def get_table_n(self,fig_block,image_path,figures_path):
@@ -376,7 +407,7 @@ class ImageParser():
             self.get_desc(table_id,table_num,table_text,self.pattern_table_desc,figures_path)
         except AttributeError:
             pass
-
+            
     # Метод, извлекающий описание к изображению или таблице
     def get_desc(self,table_id,table_num,table_text,pattern_desc,figures_path):
         result = re.search(pattern_desc,table_text)
@@ -439,12 +470,14 @@ class ImageParser():
             layout = self.model.detect(image)            
             try:
                 layout = self.model.detect(image)
+                layout_blocks_sorted = sort_layout_blocks(layout.to_dict()['blocks'])
             except Exception as e:
                 self.logger(e,image_path,path_out)
                 cv2.imwrite(f"{path_out}/logs/{page}",image)
                 pass
             try:
-                self.save_figures_from_the_page(layout,image_path,path_out)
+                self.get_figures_with_info(layout_blocks_sorted,image_path,path_out)
+                # self.save_figures_from_the_page(layout,image_path,path_out)
             except Exception as e:
                 self.logger(e,image_path,path_out)
                 cv2.imwrite(f"{path_out}/logs/{page}",image)
