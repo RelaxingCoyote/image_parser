@@ -119,6 +119,9 @@ class ImageParser():
                 fig_dict = json.load(read_file)
             # fig_dict = sorted()
             return fig_dict[object_type]
+        else:
+            return []
+        
     
     def get_figures_with_info(self,layout_blocks_sorted,page_path,figures_path):
         blocks_volume = len(layout_blocks_sorted)
