@@ -67,9 +67,7 @@ class ImageParser():
                                                 'lp://PubLayNet/mask_rcnn_X_101_32x8d_FPN_3x/config',
                                                 extra_config=["MODEL.ROI_HEADS.SCORE_THRESH_TEST", 0.80],
                                                 label_map={0: "Text", 1: "Title", 2: "List", 3:"Table", 4:"Figure"}
-                                                )
-        # self.mfd_model = lp.Detectron2LayoutModel('lp://MFD/faster_rcnn_R_50_FPN_3x/config',
-        #                 extra_config=["MODEL.ROI_HEADS.SCORE_THRESH_TEST", 0.79], label_map={1: "Equation"})                                                     
+                                                )                                                    
         self.pattern_fig = re.compile("Fig. \d*|Figure \d*|Scheme \d*|Chart \d*",re.IGNORECASE)
         self.pattern_table = re.compile("Table \d*[^.,]",re.IGNORECASE)
         self.pattern_fig_desc = re.compile("Fig. \d*[\.\:] [A-Z][\s\S]+|"
@@ -265,129 +263,6 @@ class ImageParser():
                     except AttributeError:
                         self.save_image_as_it_is(layout_blocks_sorted[block_num],page_path,
                                     figures_path,object_type="tables")
-    
-    # # Вытаскиваем описание описание строго снизу
-    # def get_table_n(self,fig_block,image_path,figures_path):
-    #     # Получим координаты таблицы
-    #     x_1,y_1 = np.floor(fig_block['x_1']),np.floor(fig_block['y_1'])
-    #     x_2,y_2 = np.ceil(fig_block['x_2']),np.ceil(fig_block['y_2'])
-
-    #     im = cv2.imread(image_path)
-    #     # Получаем отношение ширины таблицы к ширине страницы,
-    #     # а также отношение высототы таблицы к высоте страницы
-    #     page_width = im.shape[1]
-    #     page_height = im.shape[0]
-    #     figure_width = x_2-x_1
-    #     fw_to_iw = figure_width/page_width
-    #     fh_to_ph = (y_2-y_1)/page_height
-
-    #     # Таблица на всю страницу
-    #     if (fh_to_ph > 0.785) and (fw_to_iw > 0.60):
-    #         im_desc = cv2.rotate(im, cv2.cv2.ROTATE_90_CLOCKWISE)
-    #         # Переворачиваем таблицу
-    #         im = im[int(y_1):int(y_2),int(x_1):int(x_2)]
-    #         im = cv2.rotate(im, cv2.cv2.ROTATE_90_CLOCKWISE)
-
-    #     # Таблица не на всю страницу
-    #     else:
-    #         # Доля от высоты таблицы, на которую мы будем спускаться в поисках номера таблицы
-    #         y_percent = 0.25
-    #         if fh_to_ph < 0.2 and fh_to_ph < 0.15:
-    #             y_percent = 0.79
-    #         elif fh_to_ph < 0.15 and fh_to_ph > 0.10:
-    #             y_percent = 0.87
-    #         elif fh_to_ph < 0.10:
-    #             y_percent = 0.98
-    #         elif fh_to_ph>=0.4 and fh_to_ph<0.7:
-    #             y_percent = 0.40
-    #         elif fh_to_ph>=0.7:
-    #             y_percent = 0.15
-
-    #         # Если таблица больше, чем в два столбца текста
-    #         if fw_to_iw >= 0.485:
-    #             delta_x = int(x_1*0.95)
-    #             delta_y = int((y_2-y_1)*y_percent)
-
-    #         # Если таблица помещается в один столбец текста
-    #         else:
-    #             # Если таблица находится в правом столбце
-    #             if page_width - x_2> x_1:
-    #                 delta_x = int(x_1*0.48)
-    #             # Если таблица в столбце слева
-    #             else:
-    #                 delta_x = int(page_width*(0.49 - fw_to_iw )/2)
-    #             delta_y = int((y_2-y_1)*y_percent)
-            
-    #         y_1_minus_delta = int(np.clip(y_1 - delta_y,0,page_height))
-    #         x_1_minus_delta = int(np.clip(x_1 - delta_x,0,page_width))
-
-    #         im_desc = im[y_1_minus_delta:int(y_1),x_1_minus_delta:int(x_2)]
-
-    #         im = im[int(y_1):int(y_2),int(x_1):int(x_2)]
-
-    #     table_text = self.ocr_agent.detect(im_desc)
-    #     result = re.search(self.pattern_table,table_text)
-    #     table_num = result.group(0)
-
-    #     table_id = table_num.replace(" ","_").replace(".","").lower()
-    #     table_id = table_id.strip('\n')
-    #     if not os.path.exists(f"{figures_path}/tables"):
-    #         os.makedirs(f"{figures_path}/tables")
-
-    #     cv2.imwrite(f"{figures_path}/tables/{table_id}.png", im)
-
-    #     self.write_to_json(f"{figures_path}/tables",table_id,item_description='',object_type='table')
-
-    #     try:
-    #         self.pattern_table_desc
-    #         self.get_desc(table_id,table_num,table_text,self.pattern_table_desc,figures_path)
-    #     except AttributeError:
-    #         pass
-            
-    # # Метод, извлекающий описание к изображению или таблице
-    # def get_desc(self,table_id,table_num,table_text,pattern_desc,figures_path):
-    #     result = re.search(pattern_desc,table_text)
-    #     table_description = result.group(0)
-    #     table_description = table_description.strip(table_num).strip('\n')
-
-    #     sub_branch = 'table'
-
-    #     self.write_to_json(f"{figures_path}/tables",table_id,table_description,object_type=sub_branch)
-
-    # # Сохраняет предоставленную таблицу
-    # # В случае наличия номера в виде Table n
-    # # table_n
-    # def save_table_with_number(self,fig_block,image_path,figures_path):
-    #     # Предположим, что у таблицы  есть описание
-    #     try:
-    #         # Допустим описание к таблице находится сверху
-    #         # Можно добавить в вайл temp.json название статьи
-    #         self.get_table_n(fig_block,image_path,figures_path)
-    #     # Таблица без описания
-    #     except AttributeError:
-    #         self.save_image_as_it_is(fig_block,image_path,
-    #                                     figures_path,object_type="tables")
-
-    # # Сохраняет изображения (таблицы) со страницы документа
-    # def save_figures_from_the_page(self,layout,image_path,figures_path):
-    #     for block in layout.to_dict()['blocks']:
-    #         if block['type'] == "Figure":
-    #             self.save_figure_with_number(block,image_path,figures_path)
-    #         if block['type'] == "Table":
-    #             self.save_table_with_number(block,image_path,figures_path)
-
-    # # # Сохраняет предоставленную таблицу
-    # # # В случае наличия номера в виде Table n
-    # # # table_n
-    # # def save_table_with_number(self,fig_block,image_path,figures_path,paper_name):
-    # #     # Предположим, что у таблицы  есть описание
-    # #     try:
-    # #         # Допустим описание к таблице находится сверху
-    # #         self.get_table_n(fig_block,image_path,figures_path,paper_name)
-    # #     # Таблица без описания
-    # #     except AttributeError:
-    # #         self.save_image_as_it_is(fig_block,image_path,figures_path,paper_name,"tables")
-
 
     def extract_figures_from_a_single_pdf_file(self,path_pdf,path_out,image_format="PNG"):
         temp_path = f"{path_out}/temp"
