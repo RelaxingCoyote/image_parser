@@ -300,30 +300,6 @@ class ImageParser():
                 self.logger(e,image_path,path_out)
                 cv2.imwrite(f"{path_out}/logs/{page}",image)
                 pass
-            # try:
-            #     self.save_description_from_the_page(layout,image_path,path_out)
-            # except Exception as e:
-            #     self.logger(e,image_path,path_out)
-            #     cv2.imwrite(f"{path_out}/logs/{page}",image)
-            #     pass
-            # try:
-            #     # save_formulas(path_out)
-            #     # layout = self.mfd_model.detect(image)
-            #     # self.save_formulas_from_the_page(layout,image_path,path_out)
-            # except Exception as e:
-            #     self.logger(e,image_path,path_out)
-            #     cv2.imwrite(f"{path_out}/logs/{page}",image)
-
-
-        # #     os.remove(image_path)
-        # # os.rmdir(temp_path)
-
-        # for root, dirs, files in os.walk(temp_path, topdown=False):
-        #     for name in files:
-        #         os.remove(os.path.join(root, name))
-        #     # for name in dirs:
-        #     #     os.rmdir(os.path.join(root, name))
-        # os.rmdir(temp_path)
 
     # Из набора pdf-файлов генерирует папки с изображениями
     # содержащимися в документе

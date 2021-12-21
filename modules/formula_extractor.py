@@ -3,21 +3,31 @@ import json
 import os
 import cv2
 
-PATTERN_FORMULA_DESC = re.compile("\d{1,3}\.{0,1}\d{0,3}|/^[a-zA-Z]{1}$/"
+PATTERN_FORMULA_DESC = re.compile("\d{1,3}\.{0,1}\d{0,3}[a-z]{0,1}|/^[a-z]{1}$/"
                                                 "|/^[I,V,X,L]{1,4}[a-z]{0,1}$/",re.IGNORECASE)
 
 FORMULA_FRAME_PADDING = {
     'y_pad' : 0.05,
-    'x_pad' : 0.0
+    'x_pad' : 0.01
 }
+
+PAGE_PATTERN = '_{page_number}.png'
 
 def create_required_dirs_if_dont_exist(dir_path):
     if not os.path.exists(dir_path):
       os.makedirs(dir_path)
 
-def get_required_page(path_out_temp,pages_list,page_number):
-    page_with_the_formula = pages_list[page_number - 1]
-    page_path = os.path.join(path_out_temp,page_with_the_formula)
+def find_page_image_by_number(pages_list: list, page_number: int) -> str:
+    page_pattern = PAGE_PATTERN.format(page_number=page_number)
+    for page_name in pages_list:
+        if page_pattern in page_name:
+            return page_name
+
+    raise ValueError('There are no pages with the pattern {page_pattern}'.format())
+
+def get_required_page(path_out_temp, pages_list, page_number):
+    page_with_the_formula = find_page_image_by_number(pages_list, page_number)
+    page_path = os.path.join(path_out_temp, page_with_the_formula)
 
     return cv2.imread(page_path)
 
@@ -25,29 +35,29 @@ def get_scale_coeficients(page_image,pdf_page_width,pdf_page_height):
     x_scale_coefficient = page_image.shape[1] / pdf_page_width
     y_scale_coefficient = page_image.shape[0] / pdf_page_height
 
-    return x_scale_coefficient,y_scale_coefficient
+    return x_scale_coefficient, y_scale_coefficient
 
 def get_formula_coords_padding(y_1,y_2,x_1,x_2,y_pad,x_pad):
-    return y_1*(1-y_pad/2),y_2*(1+y_pad/2),x_1*(1-x_pad/2),x_2*(1+x_pad/2)
+    return y_1 * (1 - y_pad/2), y_2 * (1 + y_pad / 2), x_1 *(1 - x_pad / 2), x_2 *(1 + x_pad / 2)
 
-def get_scaled_coordinates_for_cv2(x_scale_coefficient,y_scale_coefficient,x_1,y_1,x_l,y_l):
+def get_scaled_coordinates_for_cv2(x_scale_coefficient, y_scale_coefficient,x_1,y_1,x_l,y_l):
     x_1 = x_1 * x_scale_coefficient
     y_1 = y_1 * y_scale_coefficient
     x_2 = x_1 + x_l * x_scale_coefficient
     y_2 = y_1 + y_l * y_scale_coefficient
 
-    y_1,y_2,x_1,x_2 = get_formula_coords_padding(y_1,y_2,x_1,x_2,**FORMULA_FRAME_PADDING)
+    # y_1,y_2,x_1,x_2 = get_formula_coords_padding(y_1, y_2, x_1, x_2,**FORMULA_FRAME_PADDING)
 
-    return int(y_1),int(y_2),int(x_1),int(x_2)
+    return int(y_1), int(y_2), int(x_1), int(x_2)
 
-def get_formula_image(path_out_temp,pages_list,pdf_page_width,pdf_page_height,page_number,x_1,y_1,x_l,y_l):
+def get_formula_image(path_out_temp, pages_list, pdf_page_width, pdf_page_height,page_number, x_1,y_1,x_l,y_l):
     page_image = get_required_page(path_out_temp,pages_list,page_number)
-    x_scale_coefficient,y_scale_coefficient = get_scale_coeficients(page_image,pdf_page_width,pdf_page_height)
+    x_scale_coefficient, y_scale_coefficient = get_scale_coeficients(page_image,pdf_page_width,pdf_page_height)
     y_1,y_2,x_1,x_2 = get_scaled_coordinates_for_cv2(x_scale_coefficient,y_scale_coefficient,x_1,y_1,x_l,y_l)
 
     return page_image[int(y_1):int(y_2),int(x_1):int(x_2)]
 
-def write_to_json(file_directory,item_name,item_description="",object_type='figure'):
+def write_to_json(file_directory, item_name, item_description="", object_type='figure'):
     object_id = f'{object_type}_id'
     item = {object_id:item_name,'describe':item_description}
     field_name = f"{object_type}s"
@@ -70,7 +80,7 @@ def write_to_json(file_directory,item_name,item_description="",object_type='figu
         with open(os.path.join(file_directory,"temp.json"), "w") as write_file:
             json.dump(fig_dict, write_file)
 
-def save_untitled_formula(formula_dir,formula_image):
+def save_untitled_formula(formula_dir, formula_image):
     untitled_formulas_dir = os.path.join(formula_dir,"untitled_formulas")
     create_required_dirs_if_dont_exist(untitled_formulas_dir)
         
@@ -109,7 +119,7 @@ def save_formulas(path_out):
     pages = os.listdir(path_temp)
     pages.sort()
 
-    save_formula_directory = os.path.join(path_out,'formulas')
+    save_formula_directory = os.path.join(path_out, 'formulas')
 
     for key,value in formulas_dict['coordinates'].items():
         formula_coordinates = [float(item) if item != value.split(',')[0] else int(item) for item in value.split(',')]
